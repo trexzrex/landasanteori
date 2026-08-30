@@ -1,0 +1,116 @@
+<!--
+  ════════════════════════════════════════════════════════════════
+  LandasanTeori — Email: Konfirmasi Pendaftaran (Confirm signup)
+  ════════════════════════════════════════════════════════════════
+  Paste isi file ini ke:
+    Supabase Dashboard → Authentication → Email Templates → "Confirm signup"
+  PENTING: pertahankan variabel {{ .Token }} (kode OTP 6 digit).
+  Aplikasi meminta user mengetik 6 digit di halaman /verify, jadi
+  JANGAN mengganti kode dengan tautan {{ .ConfirmationURL }}.
+-->
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>Kode Verifikasi LandasanTeori</title>
+</head>
+<body style="margin:0; padding:0; width:100%; background-color:#faf5ff; -webkit-text-size-adjust:100%;">
+  <!-- Preheader (tersembunyi) -->
+  <div style="display:none; max-height:0; overflow:hidden; opacity:0; font-size:1px; line-height:1px; color:#faf5ff;">
+    Kode verifikasi Anda: {{ .Token }} — berlaku 10 menit.
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#faf5ff;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:100%; background-color:#ffffff; border:1px solid #e9d5ff; border-radius:16px; overflow:hidden;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#6d28d9,#8b5cf6); padding:32px 40px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="vertical-align:middle;">
+                    <span style="display:inline-block; width:44px; height:44px; background-color:rgba(255,255,255,0.18); border-radius:12px; text-align:center; line-height:44px; font-size:22px;">&#9879;</span>
+                  </td>
+                  <td style="vertical-align:middle; padding-left:12px;">
+                    <span style="font-family:'Segoe UI',Helvetica,Arial,sans-serif; font-size:20px; font-weight:700; color:#ffffff; letter-spacing:-0.3px;">Landasan<span style="color:#ede9fe;">Teori</span></span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:40px 40px 24px 40px; font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
+              <h1 style="margin:0 0 8px 0; font-size:22px; font-weight:700; color:#0f172a;">Verifikasi email Anda</h1>
+              <p style="margin:0; font-size:15px; line-height:1.6; color:#64748b;">
+                Terima kasih telah mendaftar di <strong style="color:#4c1d95;">LandasanTeori</strong>. Masukkan kode di bawah ini pada halaman verifikasi untuk mengaktifkan akun Anda.
+              </p>
+            </td>
+          </tr>
+
+          <!-- OTP box -->
+          <tr>
+            <td style="padding:0 40px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f3f0fe; border:1px solid #e9d5ff; border-radius:12px;">
+                <tr>
+                  <td align="center" style="padding:24px 16px;">
+                    <p style="margin:0 0 10px 0; font-family:'Segoe UI',Helvetica,Arial,sans-serif; font-size:11px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:#7c3aed;">Kode Verifikasi</p>
+                    <p style="margin:0; font-family:'Courier New',Consolas,monospace; font-size:38px; font-weight:700; letter-spacing:10px; color:#6d28d9; line-height:1.1;">{{ .Token }}</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Meta -->
+          <tr>
+            <td style="padding:20px 40px 8px 40px; font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
+              <p style="margin:0 0 6px 0; font-size:13px; line-height:1.6; color:#64748b;">
+                &#9201;&#65039; Kode berlaku selama <strong style="color:#0f172a;">10 menit</strong>.
+              </p>
+              <p style="margin:0; font-size:13px; line-height:1.6; color:#64748b;">
+                &#128274; Jangan bagikan kode ini kepada siapa pun. Tim kami tidak akan pernah memintanya.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td style="padding:24px 40px 0 40px;">
+              <div style="border-top:1px solid #e9d5ff; height:1px; line-height:1px; font-size:0;">&nbsp;</div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:20px 40px 32px 40px; font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
+              <p style="margin:0 0 14px 0; font-size:12px; line-height:1.6; color:#94a3b8;">
+                Jika Anda tidak merasa mendaftar, abaikan email ini. Belum ada akun yang dibuat tanpa verifikasi.
+              </p>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="border-radius:8px; background-color:#f3f0fe;">
+                    <a href="https://instagram.com/athaar.mp" target="_blank" style="display:inline-block; padding:8px 14px; font-size:12px; font-weight:600; color:#6d28d9; text-decoration:none;">
+                      &#128247; Dibuat oleh Athar &middot; @athaar.mp
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:14px 0 0 0; font-size:11px; color:#cbd5e1;">
+                &copy; LandasanTeori — Generator Landasan Teori Analisis Kimia
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

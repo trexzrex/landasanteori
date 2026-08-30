@@ -148,6 +148,24 @@ supabase/migration-cleanup-stale-pending.sql
 
 Migrasi ini membuat tabel (`profiles`, `generations`, `generation_events`, `user_quota`, `user_activities`), _view_ statistik admin, kebijakan **Row Level Security**, serta fungsi & trigger (auto-seed profil saat signup, proteksi eskalasi peran, resolusi username→email, dan pembersihan generasi _pending_ basi).
 
+### Template Email (Supabase Auth)
+
+Desain email siap pakai tersedia di `supabase/templates/`. Salin isi tiap file ke **Supabase Dashboard → Authentication → Email Templates**:
+
+| File | Template Dashboard | Variabel wajib |
+|---|---|---|
+| `supabase/templates/confirm-signup.html` | **Confirm signup** | `{{ .Token }}` |
+| `supabase/templates/magic-link.html` | **Magic Link** | `{{ .Token }}` |
+| `supabase/templates/reset-password.html` | **Reset Password** | `{{ .ConfirmationURL }}` |
+
+Subject line yang disarankan:
+
+- Confirm signup — `Kode verifikasi LandasanTeori: {{ .Token }}`
+- Magic Link — `Kode masuk LandasanTeori: {{ .Token }}`
+- Reset Password — `Atur ulang password LandasanTeori`
+
+> ⚠️ **Jangan hapus `{{ .Token }}`** pada template signup & magic link — halaman `/verify` meminta user mengetik kode OTP 6 digit, bukan mengklik tautan. Untuk reset password, pertahankan `{{ .ConfirmationURL }}` pada tombol.
+
 ### Environment Variables
 
 Semua variabel didokumentasikan di [`.env.example`](./.env.example). Ringkasan kelompok utama:
