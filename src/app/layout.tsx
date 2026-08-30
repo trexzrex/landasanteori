@@ -1,0 +1,49 @@
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import { ThemeProvider } from "@/components/theme-provider";
+import { FeedbackDialog } from "@/components/feedback-dialog";
+import "./globals.css";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const metadata: Metadata = {
+  title: "Landasan Teori | Generator Analisis Kimia",
+  description:
+    "Susun landasan teori analisis kimia berbasis referensi jurnal open access.",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html
+      lang="id"
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    >
+      <body className="min-h-full flex flex-col">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground focus:shadow-lg"
+        >
+          Langsung ke konten utama
+        </a>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+          {children}
+          <FeedbackDialog />
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
