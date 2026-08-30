@@ -10,9 +10,10 @@ import { createClient } from "@/lib/supabase/server";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { checkUserQuota, consumeUserQuota } from "@/lib/quota";
 
-// Harus >= GENERATION_BUDGET_SECONDS pada src/lib/gemini.ts (default 240s).
-// Catatan deploy: Vercel Hobby membatasi 60s, Pro 300s. Turunkan keduanya jika target Hobby.
-export const maxDuration = 300;
+// Harus >= GENERATION_BUDGET_SECONDS pada src/lib/gemini.ts.
+// Vercel Hobby membatasi 60s, Pro 300s. Saat ini di-set untuk Hobby;
+// naikkan ke 300 (beserta GENERATION_BUDGET_SECONDS) setelah upgrade ke Pro.
+export const maxDuration = 60;
 
 function getClientIp(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for");
