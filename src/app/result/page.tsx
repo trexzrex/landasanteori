@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { storedResultSchema, type StoredResultData } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/client";
+import { buildPdfFileName } from "@/lib/utils";
 
 const EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
@@ -132,14 +133,14 @@ function ResultContent() {
         <PdfDocument
           landasanTeori={data.landasan_teori}
           daftarPustaka={data.daftar_pustaka}
+          judulAnalisis={data.meta.judul_analisis}
         />
       ).toBlob();
 
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      const timestamp = new Date().toISOString().slice(0, 10);
-      link.download = `landasan-teori-${timestamp}.pdf`;
+      link.download = buildPdfFileName(data.meta.judul_analisis);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

@@ -32,8 +32,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "bold",
     textAlign: "center",
-    marginBottom: 24,
+    marginBottom: 8,
     textTransform: "uppercase",
+  },
+  subtitle: {
+    fontSize: 12,
+    textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 1.4,
   },
   bodyText: {
     fontSize: 12,
@@ -55,13 +61,24 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     lineHeight: 1.5,
   },
-  pageNumber: {
+  footer: {
     position: "absolute",
-    fontSize: 10,
-    bottom: 20,
-    left: 0,
-    right: 0,
-    textAlign: "center",
+    bottom: 24,
+    left: MARGIN.left,
+    right: MARGIN.right,
+    borderTopWidth: 0.5,
+    borderTopColor: "#bbbbbb",
+    paddingTop: 6,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  footerCredit: {
+    fontSize: 8,
+    color: "grey",
+  },
+  footerPage: {
+    fontSize: 9,
     color: "grey",
   },
 });
@@ -69,11 +86,13 @@ const styles = StyleSheet.create({
 interface PdfDocumentProps {
   landasanTeori: string;
   daftarPustaka: string[];
+  judulAnalisis?: string;
 }
 
 export function PdfDocument({
   landasanTeori,
   daftarPustaka,
+  judulAnalisis,
 }: PdfDocumentProps) {
   const paragraphs = landasanTeori
     .split("\n")
@@ -81,10 +100,10 @@ export function PdfDocument({
     .filter(Boolean);
 
   return (
-    <Document>
+    <Document title={judulAnalisis || "Landasan Teori"} author="LandasanTeori Generator (@athaar.mp)">
       <Page size="A4" style={styles.page}>
         <Text style={styles.title}>LANDASAN TEORI</Text>
-
+        {judulAnalisis ? <Text style={styles.subtitle}>{judulAnalisis}</Text> : null}
         <View>
           {paragraphs.map((paragraph, index) => (
             <Text key={index} style={styles.bodyText}>
@@ -108,13 +127,18 @@ export function PdfDocument({
           ))}
         </View>
 
-        <Text
-          style={styles.pageNumber}
-          render={({ pageNumber, totalPages }) =>
-            `${pageNumber} / ${totalPages}`
-          }
-          fixed
-        />
+        <View style={styles.footer} fixed>
+          <Text style={styles.footerCredit}>
+            LandasanTeori Generator — oleh Athar | @athaar.mp (Instagram)
+          </Text>
+          <Text
+            style={styles.footerPage}
+            render={({ pageNumber, totalPages }) =>
+              `Halaman ${pageNumber} dari ${totalPages}`
+            }
+            fixed
+          />
+        </View>
       </Page>
     </Document>
   );

@@ -13,6 +13,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { createClient } from "@/lib/supabase/client";
 import { getEffectiveStatus } from "@/lib/generation-status";
 import { fadeUp, listContainer, listItem } from "@/lib/motion";
+import { buildPdfFileName } from "@/lib/utils";
 import type { Generation } from "@/lib/supabase/types";
 
 export default function HistoryPage() {
@@ -78,14 +79,14 @@ export default function HistoryPage() {
         <PdfDocument
           landasanTeori={gen.landasan_teori}
           daftarPustaka={gen.daftar_pustaka ?? []}
+          judulAnalisis={gen.judul_analisis}
         />
       ).toBlob();
 
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      const timestamp = new Date().toISOString().slice(0, 10);
-      link.download = `landasan-teori-${timestamp}.pdf`;
+      link.download = buildPdfFileName(gen.judul_analisis);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
