@@ -3,10 +3,11 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { FlaskConical, History, LayoutDashboard, LogOut, ShieldCheck, Sparkles, UserCircle } from "lucide-react";
+import { FlaskConical, History, LayoutDashboard, LogOut, ShieldCheck, UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { createClient } from "@/lib/supabase/client";
 import type { Profile } from "@/lib/supabase/types";
 
@@ -34,14 +35,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     profile?.role === "admin"
       ? [...items, { href: "/dashboard/admin", label: "Admin", icon: ShieldCheck }]
       : items;
-
-  // Navigasi bawah mobile menyisipkan aksi Generate di antara Ringkasan dan
-  // Riwayat agar pengguna ponsel langsung melihat aksi utama.
-  const mobileNavItems = [
-    navItems[0],
-    { href: "/generate", label: "Generate", icon: Sparkles },
-    ...navItems.slice(1),
-  ];
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -114,36 +107,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Bottom navigation mobile: fixed, jempol mudah menjangkau, hormati safe area. */}
-      <nav
-        aria-label="Navigasi dashboard"
-        className="fixed inset-x-0 bottom-0 z-40 grid auto-cols-fr grid-flow-col border-t border-border bg-card/90 backdrop-blur-xl lg:hidden"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-      >
-        {mobileNavItems.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href;
-          return (
-            <Link
-              key={href}
-              href={href}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "flex min-h-[56px] flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-                active ? "text-primary" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <span
-                className={cn(
-                  "flex h-7 w-12 items-center justify-center rounded-full transition-colors",
-                  active && "bg-primary/10"
-                )}
-              >
-                <Icon className="h-5 w-5" aria-hidden="true" />
-              </span>
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
+      <MobileBottomNav />
     </div>
   );
 }

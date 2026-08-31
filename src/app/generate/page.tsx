@@ -5,6 +5,7 @@ import { ChevronLeft } from "lucide-react";
 import { motion, MotionConfig } from "framer-motion";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { GenerateForm } from "@/components/generate-form";
 
 const EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
@@ -13,7 +14,7 @@ export default function GeneratePage() {
   return (
     <MotionConfig reducedMotion="user">
       <Navbar />
-      <main id="main-content" className="flex-1 px-4 py-10 sm:px-6 lg:px-8">
+      <main id="main-content" className="flex-1 px-4 py-10 pb-28 sm:px-6 lg:px-8 lg:pb-10">
         <div className="mx-auto max-w-3xl">
           {/* Breadcrumb */}
           <motion.nav
@@ -58,6 +59,7 @@ export default function GeneratePage() {
         </div>
       </main>
       <Footer />
+      <MobileBottomNav />
     </MotionConfig>
   );
 }

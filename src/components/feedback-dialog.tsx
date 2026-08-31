@@ -17,7 +17,7 @@ const feedbackOptions = [
 export function FeedbackDialog() {
   const pathname = usePathname();
   // Dashboard punya bottom navigation di mobile; FAB harus naik agar tidak menutupinya.
-  const aboveBottomNav = pathname?.startsWith("/dashboard") ?? false;
+  const aboveBottomNav = pathname?.startsWith("/dashboard") || pathname?.startsWith("/generate");
   const [open, setOpen] = React.useState(false);
   const [type, setType] = React.useState<FeedbackType>("bug");
   const [message, setMessage] = React.useState("");
