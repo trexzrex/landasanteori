@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { FlaskConical, History, LayoutDashboard, LogOut, ShieldCheck, UserCircle } from "lucide-react";
+import { FlaskConical, History, LayoutDashboard, LogOut, ShieldCheck, Sparkles, UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -34,6 +34,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     profile?.role === "admin"
       ? [...items, { href: "/dashboard/admin", label: "Admin", icon: ShieldCheck }]
       : items;
+
+  // Navigasi bawah mobile menyisipkan aksi Generate di antara Ringkasan dan
+  // Riwayat agar pengguna ponsel langsung melihat aksi utama.
+  const mobileNavItems = [
+    navItems[0],
+    { href: "/generate", label: "Generate", icon: Sparkles },
+    ...navItems.slice(1),
+  ];
+
   const signOut = async () => {
     await supabase.auth.signOut();
     router.push("/");
@@ -110,7 +119,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         className="fixed inset-x-0 bottom-0 z-40 grid auto-cols-fr grid-flow-col border-t border-border bg-card/90 backdrop-blur-xl lg:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {mobileNavItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
           return (
             <Link

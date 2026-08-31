@@ -316,27 +316,7 @@ export default function DashboardPage() {
           </motion.div>
         </div>
 
-        <motion.div custom={5} initial="hidden" animate="show" variants={fadeUp} className="lg:hidden">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                <Sparkles className="h-5 w-5 text-primary" aria-hidden="true" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="font-semibold">Buat Landasan Teori</h2>
-                <p className="text-sm text-muted-foreground">Mulai generasi baru dari data analisis Anda.</p>
-              </div>
-            </div>
-            <Button onClick={() => router.push("/generate")} className="mt-5 h-12 w-full gap-2 text-base">
-              <Sparkles className="h-5 w-5" aria-hidden="true" />
-              Mulai Generate
-            </Button>
-          </CardContent>
-        </Card>
-        </motion.div>
-
-        <motion.div custom={6} initial="hidden" animate="show" variants={fadeUp}>
+        <motion.div custom={5} initial="hidden" animate="show" variants={fadeUp}>
         <Card>
           <CardContent className="p-6">
             <div className="mb-4 flex items-center justify-between">
