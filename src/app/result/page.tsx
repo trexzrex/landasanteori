@@ -10,12 +10,17 @@ import {
   BookMarked,
   CheckCircle2,
   AlertCircle,
+  Copy,
+  Check,
+  ExternalLink,
 } from "lucide-react";
 import { MotionConfig, motion } from "framer-motion";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { InteractiveReferenceCard } from "@/components/interactive-reference-card";
+import { cleanCitationText, parseCitationString } from "@/lib/citation-utils";
 import { storedResultSchema, type StoredResultData } from "@/lib/schemas";
 import { createClient } from "@/lib/supabase/client";
 import { buildPdfFileName } from "@/lib/utils";
@@ -39,6 +44,8 @@ function ResultContent() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isGeneratingPdf, setIsGeneratingPdf] = React.useState(false);
   const [pdfError, setPdfError] = React.useState<string | null>(null);
+  const [highlightedRefIndex, setHighlightedRefIndex] = React.useState<number | null>(null);
+  const [copiedAll, setCopiedAll] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -183,19 +190,77 @@ function ResultContent() {
     );
   }
 
+  const handleJumpToCitation = (indexStr: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    const targetId = `ref-${indexStr}`;
+    const targetElement = document.getElementById(targetId);
+    if (targetElement) {
+      targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      const idx = parseInt(indexStr, 10) - 1;
+      setHighlightedRefIndex(idx);
+      setTimeout(() => {
+        setHighlightedRefIndex((current) => (current === idx ? null : current));
+      }, 2500);
+    }
+  };
+
+  const handleCopyAllCitations = async () => {
+    if (!data?.daftar_pustaka?.length) return;
+    try {
+      const allText = data.daftar_pustaka
+        .map((ref, idx) => `[${idx + 1}] ${cleanCitationText(ref)}`)
+        .join("\n\n");
+      await navigator.clipboard.writeText(allText);
+      setCopiedAll(true);
+      setTimeout(() => setCopiedAll(false), 2000);
+    } catch (err) {
+      console.error("Gagal menyalin seluruh daftar pustaka:", err);
+    }
+  };
+
   const renderTextWithCitations = (text: string) => {
     const parts = text.split(/(\[\d+\])/g);
     return parts.map((part, idx) => {
       if (/^\[\d+\]$/.test(part)) {
         const num = part.replace(/[\[\]]/g, "");
+        const numInt = parseInt(num, 10);
+        const refItem = data?.daftar_pustaka?.[numInt - 1];
+        const parsed = refItem ? parseCitationString(refItem) : null;
+
         return (
-          <a
-            key={idx}
-            href={`#ref-${num}`}
-            className="inline-flex h-4 w-auto min-w-[1rem] items-center justify-center rounded bg-primary/10 px-1 text-[10px] font-semibold text-primary no-underline hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-          >
-            <sup>{num}</sup>
-          </a>
+          <span key={idx} className="group/cite relative inline-block mx-0.5">
+            <a
+              href={`#ref-${num}`}
+              onClick={(e) => handleJumpToCitation(num, e)}
+              className="inline-flex h-4 w-auto min-w-[1.1rem] items-center justify-center rounded bg-primary/10 px-1 text-[10px] font-semibold text-primary no-underline transition-all hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              aria-label={`Rujukan jurnal nomor ${num}`}
+            >
+              <sup>{num}</sup>
+            </a>
+
+            {/* Hover Tooltip Popover Pratinjau Jurnal */}
+            {parsed && (
+              <span className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 hidden w-64 -translate-x-1/2 rounded-xl border border-border/80 bg-card p-3 shadow-xl backdrop-blur-md opacity-0 transition-opacity duration-200 group-hover/cite:pointer-events-auto group-hover/cite:block group-hover/cite:opacity-100">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-primary">
+                  Sumber Rujukan [{num}]
+                </span>
+                <span className="mt-1 block line-clamp-2 text-xs font-semibold leading-snug text-foreground">
+                  {parsed.title}
+                </span>
+                <span className="mt-1 block truncate text-[11px] text-muted-foreground">
+                  {parsed.authors} ({parsed.year})
+                </span>
+                {parsed.journal && (
+                  <span className="mt-0.5 block truncate text-[10px] italic text-muted-foreground">
+                    {parsed.journal}
+                  </span>
+                )}
+                <span className="mt-2 block border-t border-border/60 pt-1.5 text-[10px] font-medium text-primary">
+                  Klik untuk melihat di Daftar Pustaka ↓
+                </span>
+              </span>
+            )}
+          </span>
         );
       }
       return <span key={idx}>{part}</span>;
@@ -286,27 +351,49 @@ function ResultContent() {
 
           <motion.div custom={3} initial="hidden" animate="show" variants={fadeUp}>
             <Card className="mb-8">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-center gap-2 text-center text-xl font-bold uppercase tracking-wide">
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle className="flex items-center gap-2 text-xl font-bold uppercase tracking-wide">
                   <BookMarked
                     className="h-5 w-5 text-primary"
                     aria-hidden="true"
                   />
                   DAFTAR PUSTAKA
                 </CardTitle>
+
+                {data.daftar_pustaka.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCopyAllCitations}
+                    className="h-8 gap-1.5 px-3 text-xs w-full sm:w-auto"
+                    title="Salin semua sitasi APA sekaligus untuk laporan Word"
+                  >
+                    {copiedAll ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-success" />
+                        <span className="text-success font-medium">Semua APA Tersalin!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5" />
+                        <span>Salin Semua Sitasi (APA)</span>
+                      </>
+                    )}
+                  </Button>
+                )}
               </CardHeader>
               <CardContent>
                 {data.daftar_pustaka.length > 0 ? (
-                  <ol className="space-y-3 text-sm leading-relaxed">
+                  <div className="space-y-3.5">
                     {data.daftar_pustaka.map((ref, idx) => (
-                      <li key={idx} id={`ref-${idx + 1}`} className="flex gap-3 scroll-mt-20">
-                        <span className="shrink-0 font-semibold text-primary">
-                          [{idx + 1}]
-                        </span>
-                        <span className="text-foreground">{ref}</span>
-                      </li>
+                      <InteractiveReferenceCard
+                        key={idx}
+                        citation={ref}
+                        index={idx}
+                        isHighlighted={highlightedRefIndex === idx}
+                      />
                     ))}
-                  </ol>
+                  </div>
                 ) : (
                   <div className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-4 text-sm">
                     <AlertCircle
