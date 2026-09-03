@@ -76,7 +76,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </Link>
         </div>
 
-        <nav className="px-3 py-3" aria-label="Navigasi dashboard">
+        <nav id="tour-sidebar-nav" className="px-3 py-3" aria-label="Navigasi dashboard">
           {navItems.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}

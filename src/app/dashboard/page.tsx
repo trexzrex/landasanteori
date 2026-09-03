@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { DashboardTutorialModal, STORAGE_KEY } from "@/components/dashboard-tutorial-modal";
+import { DashboardSpotlightTour, SPOTLIGHT_STORAGE_KEY } from "@/components/dashboard-spotlight-tour";
 import { createClient } from "@/lib/supabase/client";
 import { getEffectiveStatus } from "@/lib/generation-status";
 import { useChartPalette } from "@/lib/chart-theme";
@@ -31,13 +31,13 @@ export default function DashboardPage() {
   const [showTutorial, setShowTutorial] = React.useState(false);
 
   React.useEffect(() => {
-    // Periksa apakah user sudah pernah melihat tutorial
+    // Periksa apakah user sudah pernah melihat spotlight tour
     if (typeof window !== "undefined") {
       try {
-        const hasSeen = localStorage.getItem(STORAGE_KEY);
+        const hasSeen = localStorage.getItem(SPOTLIGHT_STORAGE_KEY);
         if (!hasSeen) {
-          // Delay sedikit agar halaman ter-render sempurna sebelum modal muncul
-          const timer = setTimeout(() => setShowTutorial(true), 600);
+          // Delay sedikit agar halaman dan grafik ter-render sempurna sebelum spotlight aktif
+          const timer = setTimeout(() => setShowTutorial(true), 800);
           return () => clearTimeout(timer);
         }
       } catch {
@@ -163,6 +163,7 @@ export default function DashboardPage() {
           />
           <div className="flex items-center gap-2.5">
             <Button
+              id="tour-btn-panduan"
               variant="outline"
               onClick={() => setShowTutorial(true)}
               className="gap-1.5 text-xs sm:text-sm"
@@ -171,7 +172,11 @@ export default function DashboardPage() {
               <HelpCircle className="h-4 w-4 text-primary" aria-hidden="true" />
               <span>Panduan</span>
             </Button>
-            <Button onClick={() => router.push("/generate")} className="shrink-0 gap-2">
+            <Button
+              id="tour-btn-generate"
+              onClick={() => router.push("/generate")}
+              className="shrink-0 gap-2"
+            >
               <Sparkles className="h-4 w-4" aria-hidden="true" />
               Buat Landasan Teori
             </Button>
@@ -179,6 +184,7 @@ export default function DashboardPage() {
         </motion.div>
 
         <motion.div
+          id="tour-stats-grid"
           variants={listContainer}
           initial="hidden"
           animate="show"
@@ -228,7 +234,7 @@ export default function DashboardPage() {
           </motion.div>
 
           <motion.div custom={2} initial="hidden" animate="show" variants={fadeUp}>
-          <Card className="h-full">
+          <Card id="tour-quota-card" className="h-full">
             <CardContent className="p-6">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-warning-surface">
@@ -346,7 +352,7 @@ export default function DashboardPage() {
         </div>
 
         <motion.div custom={5} initial="hidden" animate="show" variants={fadeUp}>
-        <Card>
+        <Card id="tour-recent-history">
           <CardContent className="p-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Riwayat Terbaru</h2>
@@ -381,7 +387,7 @@ export default function DashboardPage() {
         </motion.div>
       </div>
 
-      <DashboardTutorialModal
+      <DashboardSpotlightTour
         isOpen={showTutorial}
         onClose={() => setShowTutorial(false)}
       />
