@@ -3,13 +3,14 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Award, Clock, FileText, Loader2, ShieldCheck, Sparkles, TrendingUp } from "lucide-react";
+import { Award, Clock, FileText, HelpCircle, Loader2, ShieldCheck, Sparkles, TrendingUp } from "lucide-react";
 import { MotionConfig, motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { DashboardTutorialModal, STORAGE_KEY } from "@/components/dashboard-tutorial-modal";
 import { createClient } from "@/lib/supabase/client";
 import { getEffectiveStatus } from "@/lib/generation-status";
 import { useChartPalette } from "@/lib/chart-theme";
@@ -27,6 +28,23 @@ export default function DashboardPage() {
   const [quota, setQuota] = React.useState<UserQuota | null>(null);
   const [generations, setGenerations] = React.useState<Generation[]>([]);
   const [loading, setLoading] = React.useState(true);
+  const [showTutorial, setShowTutorial] = React.useState(false);
+
+  React.useEffect(() => {
+    // Periksa apakah user sudah pernah melihat tutorial
+    if (typeof window !== "undefined") {
+      try {
+        const hasSeen = localStorage.getItem(STORAGE_KEY);
+        if (!hasSeen) {
+          // Delay sedikit agar halaman ter-render sempurna sebelum modal muncul
+          const timer = setTimeout(() => setShowTutorial(true), 600);
+          return () => clearTimeout(timer);
+        }
+      } catch {
+        // Abaikan
+      }
+    }
+  }, []);
 
   React.useEffect(() => {
     async function loadData() {
@@ -143,10 +161,21 @@ export default function DashboardPage() {
             title="Dashboard"
             description={`Halo, ${profile?.nama || "User"}. Pantau aktivitas generasi Anda.`}
           />
-          <Button onClick={() => router.push("/generate")} className="shrink-0 gap-2">
-            <Sparkles className="h-4 w-4" aria-hidden="true" />
-            Buat Landasan Teori
-          </Button>
+          <div className="flex items-center gap-2.5">
+            <Button
+              variant="outline"
+              onClick={() => setShowTutorial(true)}
+              className="gap-1.5 text-xs sm:text-sm"
+              aria-label="Buka panduan fitur dashboard"
+            >
+              <HelpCircle className="h-4 w-4 text-primary" aria-hidden="true" />
+              <span>Panduan</span>
+            </Button>
+            <Button onClick={() => router.push("/generate")} className="shrink-0 gap-2">
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+              Buat Landasan Teori
+            </Button>
+          </div>
         </motion.div>
 
         <motion.div
@@ -351,6 +380,11 @@ export default function DashboardPage() {
         </Card>
         </motion.div>
       </div>
+
+      <DashboardTutorialModal
+        isOpen={showTutorial}
+        onClose={() => setShowTutorial(false)}
+      />
     </DashboardShell>
     </MotionConfig>
   );
