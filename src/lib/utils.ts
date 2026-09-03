@@ -24,3 +24,27 @@ export function buildPdfFileName(judul: string | undefined | null) {
   return slug ? `Landasan_Teori_${slug}.pdf` : "Landasan_Teori.pdf";
 }
 
+/**
+ * Mengambil base URL aplikasi secara konsisten di server maupun client.
+ * Prioritas: NEXT_PUBLIC_SITE_URL -> VERCEL_PROJECT_PRODUCTION_URL -> VERCEL_URL -> localhost
+ */
+export function getSiteUrl(): string {
+  const customUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (customUrl && customUrl.trim().length > 0) {
+    return customUrl.replace(/\/+$/, "");
+  }
+
+  const vercelProdUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  if (vercelProdUrl && vercelProdUrl.trim().length > 0) {
+    return `https://${vercelProdUrl.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
+  }
+
+  const vercelUrl = process.env.VERCEL_URL;
+  if (vercelUrl && vercelUrl.trim().length > 0) {
+    return `https://${vercelUrl.replace(/^https?:\/\//, "").replace(/\/+$/, "")}`;
+  }
+
+  return "https://landasanteori.vercel.app";
+}
+
+

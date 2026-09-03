@@ -1,8 +1,11 @@
 import { LegalPage, LegalSection, LegalList } from "@/components/legal-page";
 
 export const metadata = {
-  title: "Kebijakan Privasi | Landasan Teori",
+  title: "Kebijakan Privasi",
   description: "Bagaimana Landasan Teori Generator mengumpulkan, menggunakan, dan melindungi data Anda.",
+  alternates: {
+    canonical: "/privacy-policy",
+  },
 };
 
 export default function PrivacyPolicyPage() {

@@ -1,8 +1,11 @@
 import { LegalPage, LegalSection, LegalList } from "@/components/legal-page";
 
 export const metadata = {
-  title: "Syarat & Ketentuan | Landasan Teori",
+  title: "Syarat & Ketentuan",
   description: "Ketentuan penggunaan layanan Landasan Teori Generator.",
+  alternates: {
+    canonical: "/terms-of-service",
+  },
 };
 
 export default function TermsOfServicePage() {
