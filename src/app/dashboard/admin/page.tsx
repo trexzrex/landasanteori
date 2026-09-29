@@ -232,19 +232,23 @@ export default function AdminPage() {
               <div className="py-8 text-center text-sm text-muted-foreground">Belum ada data generasi.</div>
             ) : (
               <div className="space-y-3">
-                {generations.slice(0, 10).map((item) => (
-                  <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border p-4 transition-colors hover:bg-secondary/40">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{item.judul_analisis}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(item.created_at).toLocaleDateString("id-ID")} · {item.laboratorium} · {item.kedalaman}
-                      </p>
+                {generations.slice(0, 10).map((item) => {
+                  const userProfile = profiles.find((p) => p.id === item.user_id);
+                  const userName = userProfile?.nama || userProfile?.username || userProfile?.email || "Pengguna Tidak Diketahui";
+                  return (
+                    <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border p-4 transition-colors hover:bg-secondary/40">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">{item.judul_analisis}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Oleh: <span className="font-medium text-foreground">{userName}</span> · {new Date(item.created_at).toLocaleDateString("id-ID")} · {item.laboratorium} · {item.kedalaman}
+                        </p>
+                      </div>
+                      <div className="shrink-0">
+                        <StatusBadge status={getEffectiveStatus(item, loadedAt)} />
+                      </div>
                     </div>
-                    <div className="shrink-0">
-                      <StatusBadge status={getEffectiveStatus(item, loadedAt)} />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

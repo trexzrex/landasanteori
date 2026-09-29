@@ -15,8 +15,8 @@ const openRouterApiKey = process.env.OPENROUTER_API_KEY;
 // PROVIDER_TIMEOUT_MS tanpa menghasilkan apa pun, sehingga hanya membuang 60s.
 // Model seperti itu tetap berguna di layer query yang promptnya pendek.
 const openRouterProviders = [
-  { name: "openrouter-nvidia", model: process.env.OPENROUTER_MODEL || "nvidia/nemotron-3-ultra-550b-a55b:free", order: Number(process.env.PROVIDER_OPENROUTER_NVIDIA_ORDER || 0), longForm: false },
-  { name: "openrouter-minimax", model: process.env.OPENROUTER_MINIMAX_MODEL || "minimax/minimax-m3:free", order: Number(process.env.PROVIDER_OPENROUTER_MINIMAX_ORDER || 0), longForm: true },
+  { name: "openrouter-nvidia", model: process.env.OPENROUTER_MODEL || "nvidia/nemotron-3-ultra-550b-a55b:free", order: Number(process.env.PROVIDER_OPENROUTER_NVIDIA_ORDER || 0), longForm: true },
+  { name: "openrouter-dots", model: process.env.OPENROUTER_DOTS_MODEL || "dots-studio/dots-3-note-preview:free", order: Number(process.env.PROVIDER_OPENROUTER_DOTS_ORDER || 0), longForm: true },
   { name: "openrouter-glm", model: process.env.OPENROUTER_FALLBACK_MODEL || "z-ai/glm-5.2:free", order: Number(process.env.PROVIDER_OPENROUTER_GLM_ORDER || 0), longForm: true },
 ].filter((provider) => provider.order > 0).sort((a, b) => a.order - b.order);
 const aihubmixApiKey = process.env.AIHUBMIX_API_KEY;
@@ -24,12 +24,10 @@ const aihubmixModel = process.env.AIHUBMIX_MODEL || "gemini-3.7-flash-free";
 const aihubmixBaseUrl = process.env.AIHUBMIX_BASE_URL || "https://aihubmix.com/v1";
 const extraProviders = [
   { name: "terra", baseUrl: process.env.TERRA_API_BASE_URL, apiKey: process.env.TERRA_API_KEY, model: process.env.TERRA_MODEL || "gpt-5.6-terra", order: Number(process.env.PROVIDER_TERRA_ORDER || 0), longForm: true },
-  { name: "freetokenfaucet", baseUrl: process.env.FREETOKENFAUCET_API_BASE_URL, apiKey: process.env.FREETOKENFAUCET_API_KEY, model: process.env.FREETOKENFAUCET_MODEL || "gpt-5.6-terra", order: Number(process.env.PROVIDER_FREETOKENFAUCET_ORDER || 0), longForm: true },
 ].filter((provider) => provider.order > 0).sort((a, b) => a.order - b.order);
 const modelName = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 const fallbackModelName = process.env.GEMINI_FALLBACK_MODEL || "gemini-3.5-flash";
 const PROVIDER_TIMEOUT_MS = 60000;
-const FREETOKENFAUCET_TIMEOUT_MS = 20000;
 // Harus <= maxDuration pada src/app/api/generate/route.ts, jika tidak request dipotong runtime
 const TOTAL_BUDGET_MS = Number(process.env.GENERATION_BUDGET_SECONDS || 240) * 1000;
 // Draft di bawah ambang tetap disimpan bila mencapai jumlah kata ini, untuk bahan tahap perluasan
@@ -130,7 +128,7 @@ async function generateWithAIHubMix(prompt: string, config: { temperature: numbe
 
 async function generateWithExtraProvider(provider: { name: string; baseUrl?: string; apiKey?: string; model: string }, prompt: string, config: { temperature: number; maxOutputTokens: number }): Promise<string> {
   if (!provider.baseUrl || !provider.apiKey) throw new Error(`${provider.name} belum dikonfigurasi`);
-  const timeoutMs = provider.name === "freetokenfaucet" ? FREETOKENFAUCET_TIMEOUT_MS : PROVIDER_TIMEOUT_MS;
+  const timeoutMs = PROVIDER_TIMEOUT_MS;
   const response = await fetch(`${provider.baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
@@ -146,7 +144,7 @@ async function generateWithExtraProvider(provider: { name: string; baseUrl?: str
 }
 
 async function generateWithFallbacks(
-  prompt: string,
+  promptInput: string | ((model: string) => string),
   config: { temperature: number; maxOutputTokens: number },
   options: {
     stage: string;
@@ -173,9 +171,10 @@ async function generateWithFallbacks(
           if (isGeminiOnCooldown(modelName)) {
             throw new Error(`Gemini ${modelName} on cooldown (quota exceeded)`);
           }
+          const p = typeof promptInput === "function" ? promptInput(modelName) : promptInput;
           const response = await ai.models.generateContent({
             model: modelName,
-            contents: prompt,
+            contents: p,
             config: { ...config, thinkingConfig: { thinkingBudget: 0 } },
           });
           if (!response.text) throw new Error("Empty response from Gemini");
@@ -191,9 +190,10 @@ async function generateWithFallbacks(
           if (isGeminiOnCooldown(fallbackModelName)) {
             throw new Error(`Gemini ${fallbackModelName} on cooldown (quota exceeded)`);
           }
+          const p = typeof promptInput === "function" ? promptInput(fallbackModelName) : promptInput;
           const response = await ai.models.generateContent({
             model: fallbackModelName,
-            contents: prompt,
+            contents: p,
             config: { ...config, thinkingConfig: { thinkingBudget: 0 } },
           });
           if (!response.text) throw new Error("Empty response from Gemini");
@@ -208,7 +208,10 @@ async function generateWithFallbacks(
       name: provider.name,
       label: `OpenRouter · ${provider.model}`,
       longForm: provider.longForm,
-      run: () => generateWithOpenRouterModel(provider.model, prompt, config),
+      run: () => {
+        const p = typeof promptInput === "function" ? promptInput(provider.model) : promptInput;
+        return generateWithOpenRouterModel(provider.model, p, config);
+      },
     })),
     
     // Extra providers (Terra, FreeTokenFaucet)
@@ -217,7 +220,10 @@ async function generateWithFallbacks(
       name: provider.name,
       label: `${provider.name} · ${provider.model}`,
       longForm: provider.longForm,
-      run: () => generateWithExtraProvider(provider, prompt, config),
+      run: () => {
+        const p = typeof promptInput === "function" ? promptInput(provider.model) : promptInput;
+        return generateWithExtraProvider(provider, p, config);
+      },
     })),
     
     // AIHubMix
@@ -226,7 +232,10 @@ async function generateWithFallbacks(
       name: "aihubmix",
       label: `AIHubMix · ${aihubmixModel}`,
       longForm: true,
-      run: () => generateWithAIHubMix(prompt, config),
+      run: () => {
+        const p = typeof promptInput === "function" ? promptInput(aihubmixModel) : promptInput;
+        return generateWithAIHubMix(p, config);
+      },
     },
   ]
     .filter((provider) => provider.order > 0)
@@ -341,21 +350,35 @@ export async function generateLandasanTeori(params: {
     ? `\n\nAcuan standar yang ditemukan (gunakan hanya jika benar-benar relevan):\n${params.standards.map((standard, index) => `[SNI ${index + 1}] ${standard}`).join("\n")}`
     : "";
 
-  const context = params.journals
-    .map(
-      (journal, index) =>
-        `[SUMBER ${index + 1}]\nJudul: ${journal.title}\nPenulis: ${journal.authors.join(", ")}\nTahun: ${journal.year}\nJurnal: ${journal.journal}\nAbstrak: ${journal.abstract}`
-    )
-    .join("\n\n");
-
   const targetMinimum = params.kedalaman === "singkat" ? 300 : params.kedalaman === "menengah" ? 600 : 1000;
   const minParagraphs = Math.ceil(targetMinimum / 120);
+
+  const buildContext = (modelName: string) => {
+    const isDots = modelName.toLowerCase().includes("dots");
+    // Limit to max 5 journals if using Dots to avoid timeout on large prompts
+    const journalsToUse = isDots ? params.journals.slice(0, 5) : params.journals;
+    
+    return journalsToUse
+      .map((journal, index) => {
+        let abs = journal.abstract;
+        // Truncate abstract to 500 chars if using Dots
+        if (isDots && abs.length > 500) {
+          abs = abs.substring(0, 500) + "...";
+        }
+        return `[SUMBER ${index + 1}]\nJudul: ${journal.title}\nPenulis: ${journal.authors.join(", ")}\nTahun: ${journal.year}\nJurnal: ${journal.journal}\nAbstrak: ${abs}`;
+      })
+      .join("\n\n");
+  };
   
-  const prompt = `Anda adalah asisten akademik untuk kimia analitik.
+  const buildPrompt = (modelName: string) => {
+    const context = buildContext(modelName);
+    const journalsCount = modelName.toLowerCase().includes("dots") ? Math.min(params.journals.length, 5) : params.journals.length;
+
+    return `Anda adalah asisten akademik untuk kimia analitik.
 
 Tugas: Susun bagian Landasan Teori untuk analisis "${params.judulAnalisis}" dalam BAHASA INDONESIA.
 
-Konteks: Anda diberikan ${params.journals.length} abstrak jurnal ilmiah dari OpenAlex dan Semantic Scholar. Abstrak ini dalam bahasa Inggris, tapi output Anda WAJIB Bahasa Indonesia yang koheren dan akademik.
+Konteks: Anda diberikan ${journalsCount} abstrak jurnal ilmiah dari OpenAlex dan Semantic Scholar. Abstrak ini dalam bahasa Inggris, tapi output Anda WAJIB Bahasa Indonesia yang koheren dan akademik.
 
 ATURAN PENULISAN WAJIB:
 1. Tulis landasan teori untuk PRAKTIKUM dengan judul "${params.judulAnalisis}". Bahas teori yang diperlukan untuk memahami praktikum tersebut, bukan laporan atau ringkasan praktikum milik peneliti lain.
@@ -364,7 +387,7 @@ ATURAN PENULISAN WAJIB:
 4. Gunakan hanya informasi yang didukung konteks sumber. Jangan mengarang angka, kondisi, hasil, nomor standar, atau prosedur.
 5. Parafrase dengan bahasa Indonesia yang ringan, jelas, dan tetap akademik. Jelaskan istilah teknis dengan kalimat sederhana saat pertama kali digunakan.
 6. Target panjang: ${TARGET_WORDS[params.kedalaman]} kata, minimal ${targetMinimum} kata, dan boleh lebih.
-7. Setiap paragraf harus memiliki sitasi [n] yang benar-benar mendukung isi paragraf. Semua sumber yang diberikan sudah lolos relevansi; sitasi setiap sumber [1] sampai [${params.journals.length}] minimal satu kali pada klaim yang didukungnya.
+7. Setiap paragraf harus memiliki sitasi [n] yang benar-benar mendukung isi paragraf. Semua sumber yang diberikan sudah lolos relevansi; sitasi setiap sumber [1] sampai [${journalsCount}] minimal satu kali pada klaim yang didukungnya.
 8. Jika acuan SNI tersedia dalam konteks, jelaskan kaitannya dengan sampel dan parameter praktikum. Sebut nomor/judul SNI hanya jika tertulis dalam konteks; jangan mengarang acuan.
 9. Jangan membuat daftar pustaka di dalam teks, jangan menyebut AI, instruksi, konteks sumber, atau proses pencarian.
 10. Tulis teks biasa dengan subjudul bernomor dan paragraf naratif, tanpa bullet list.
@@ -400,6 +423,7 @@ INGAT:
 - Gunakan setiap sumber yang tersedia dan tempatkan sitasinya hanya pada klaim yang didukung sumber tersebut.
 - Jangan menulis hasil pengujian atau kesimpulan mutu tanpa data praktikum.
 - JANGAN gunakan format LaTeX, Markdown bold/italic, atau simbol dolar ($). Output harus teks biasa murni.`;
+  };
 
   const deadline = Date.now() + TOTAL_BUDGET_MS;
   const tolerance = Math.floor(targetMinimum * 0.95);
@@ -482,7 +506,7 @@ INGAT:
 
     // Use unified provider approach - respects ENV order.
     // acceptBest: draft di bawah ambang tetap diambil agar tahap perluasan punya bahan.
-    const rawText = await generateWithFallbacks(prompt, config, {
+    const rawText = await generateWithFallbacks(buildPrompt, config, {
       stage: "Pembuatan landasan teori",
       deadline,
       qualityCheck: (candidate) => evaluateOutput(candidate, targetMinimum),
@@ -518,7 +542,11 @@ INGAT:
         }
 
         const deficits = describeDeficits(bestDraft, targetMinimum);
-        const expansionPrompt = `${prompt}
+        const buildExpansionPrompt = (modelName: string) => {
+          const basePrompt = buildPrompt(modelName);
+          const journalsCount = modelName.toLowerCase().includes("dots") ? Math.min(params.journals.length, 5) : params.journals.length;
+          
+          return `${basePrompt}
 
 --- INSTRUKSI PERLUASAN (PUTARAN ${round} DARI ${maxRounds}) ---
 Di bawah ini draft yang sudah ada. JANGAN mulai dari nol dan JANGAN memotong bagian yang sudah baik.
@@ -535,13 +563,14 @@ CARA MEMPERBAIKI:
 2. Perdalam penjelasan mekanisme, alasan, dan kaitannya dengan praktikum "${params.judulAnalisis}".
 3. Tambah kedalaman pada paragraf yang masih pendek; jangan menambah paragraf yang hanya mengulang.
 4. Target akhir: ${TARGET_WORDS[params.kedalaman]} kata, minimum mutlak ${targetMinimum} kata.
-5. Setiap sumber [1] sampai [${params.journals.length}] wajib disitasi minimal sekali, hanya pada klaim yang didukung abstraknya.
+5. Setiap sumber [1] sampai [${journalsCount}] wajib disitasi minimal sekali, hanya pada klaim yang didukung abstraknya.
 6. Tetap Bahasa Indonesia akademik, teks biasa, tanpa LaTeX, tanpa Markdown, tanpa simbol dolar.
 
 Keluarkan HANYA teks landasan teori versi lengkap yang sudah diperluas.`;
+        };
 
         try {
-          const expansionText = await generateWithFallbacks(expansionPrompt, {
+          const expansionText = await generateWithFallbacks(buildExpansionPrompt, {
             temperature: 0.5,
             maxOutputTokens: config.maxOutputTokens,
           }, {
@@ -590,7 +619,7 @@ Keluarkan HANYA teks landasan teori versi lengkap yang sudah diperluas.`;
 - Hasil terbaik: ${bestDraft.words} kata, ${bestDraft.paragraphs.length} paragraf, ${bestDraft.citations.length} sitasi (${params.journals.length - bestDraft.missing.length}/${params.journals.length} sumber)
 - Syarat: minimal ${tolerance} kata (toleransi 5%), minimal ${minParagraphs} paragraf, minimal ${minRequiredCitations} sumber disitasi
 ${detail}
-- Konteks: ${params.journals.length} jurnal, ${context.length} chars${lastRoundError ? `\n- Error terakhir: ${lastRoundError instanceof Error ? lastRoundError.message.slice(0, 200) : String(lastRoundError)}` : ""}
+- Konteks: ${params.journals.length} jurnal${lastRoundError ? `\n- Error terakhir: ${lastRoundError instanceof Error ? lastRoundError.message.slice(0, 200) : String(lastRoundError)}` : ""}
 
 Kemungkinan penyebab:
 1. Jurnal yang ditemukan kurang relevan dengan topik "${params.judulAnalisis}"
