@@ -1,3 +1,4 @@
+import { getAdminSupabase } from '@/lib/supabase/admin';
 /**
  * journal-api.ts
  * 
@@ -433,6 +434,26 @@ function rankJournals(journals: JournalMetadata[], queries: string[]): JournalMe
 export async function fetchAllSources(
   queries: string[]
 ): Promise<JournalMetadata[]> {
+  const supabase = getAdminSupabase();
+  const normalizedMainQuery = queries[0]?.toLowerCase().replace(/\s+/g, " ").trim();
+  
+  if (supabase && normalizedMainQuery) {
+    console.log(`[RAG CACHE] Memeriksa cache untuk query: "${normalizedMainQuery}"`);
+    try {
+      const { data } = await supabase
+        .from('journal_cache')
+        .select('journals')
+        .eq('search_query', normalizedMainQuery)
+        .single();
+        
+      if (data && data.journals && Array.isArray(data.journals) && data.journals.length > 0) {
+        console.log(`[RAG CACHE] ✅ Ditemukan ${data.journals.length} jurnal di cache. Melewati fetch eksternal.`);
+        return data.journals as JournalMetadata[];
+      }
+    } catch (err) {
+      console.warn("[RAG CACHE] Cache miss atau gagal membaca cache:", (err as Error).message || err);
+    }
+  }
   
   console.log(`🔍 Fetching journals (parallel) for ${queries.length} query variant(s): ${queries.map(q => `"${q}"`).join(" | ")}`);
   
@@ -464,6 +485,20 @@ export async function fetchAllSources(
   const top7 = rankedJournals.slice(0, 7);
 
   console.log(`✅ Total: ${allJournals.length} journals found → ${uniqueJournals.length} unique → ${top7.length} top-ranked selected`);
+  
+  // Simpan hasil ke cache jika pencarian menghasilkan jurnal
+  if (supabase && normalizedMainQuery && top7.length > 0) {
+    console.log(`[RAG CACHE] Menyimpan ${top7.length} jurnal untuk query: "${normalizedMainQuery}" ke database...`);
+    // Simpan secara asynchronous tanpa ngeblok eksekusi
+    supabase.from('journal_cache').insert({
+      search_query: normalizedMainQuery,
+      journals: uniqueJournals
+    }).then(({error}) => {
+      if (error && error.code !== '23505') { // abaikan error constraint unique
+        console.warn("[RAG CACHE] Gagal menyimpan ke cache:", error.message);
+      }
+    });
+  }
   
   return top7;
 }
