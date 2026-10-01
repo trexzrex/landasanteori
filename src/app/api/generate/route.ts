@@ -217,7 +217,8 @@ export async function POST(request: Request) {
 
     const uniqueQueryVariants = [...new Set(queryVariants.filter(Boolean))];
 
-    const journals = await fetchAllSources(uniqueQueryVariants);
+    const allFetchedJournals = await fetchAllSources(uniqueQueryVariants);
+    const journals = allFetchedJournals.slice(0, 7);
 
     if (journals.length === 0) {
       // Bedakan dua sebab: penerjemah judul tumbang (masalah sementara di sisi kami)

@@ -346,8 +346,6 @@ export async function generateLandasanTeori(params: {
   preferredProvider?: string;
   onModelUsed?: (model: string) => void;
 }): Promise<string> {
-  // Batasi jurnal maksimal 7 (sudah diranking dari database) agar instruksi prompt dan evaluasi konsisten.
-  params.journals = params.journals.slice(0, 7);
 
   const standardsContext = params.standards?.length
     ? `\n\nAcuan standar yang ditemukan (gunakan hanya jika benar-benar relevan):\n${params.standards.map((standard, index) => `[SNI ${index + 1}] ${standard}`).join("\n")}`
