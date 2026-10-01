@@ -15,9 +15,7 @@ const openRouterApiKey = process.env.OPENROUTER_API_KEY;
 // PROVIDER_TIMEOUT_MS tanpa menghasilkan apa pun, sehingga hanya membuang 60s.
 // Model seperti itu tetap berguna di layer query yang promptnya pendek.
 const openRouterProviders = [
-  { name: "openrouter-nvidia", model: process.env.OPENROUTER_MODEL || "nvidia/nemotron-3-ultra-550b-a55b:free", order: Number(process.env.PROVIDER_OPENROUTER_NVIDIA_ORDER || 0), longForm: true },
   { name: "openrouter-dots", model: process.env.OPENROUTER_DOTS_MODEL || "dots-studio/dots-3-note-preview:free", order: Number(process.env.PROVIDER_OPENROUTER_DOTS_ORDER || 0), longForm: true },
-  { name: "openrouter-glm", model: process.env.OPENROUTER_FALLBACK_MODEL || "z-ai/glm-5.2:free", order: Number(process.env.PROVIDER_OPENROUTER_GLM_ORDER || 0), longForm: true },
 ].filter((provider) => provider.order > 0).sort((a, b) => a.order - b.order);
 const aihubmixApiKey = process.env.AIHUBMIX_API_KEY;
 const aihubmixModel = process.env.AIHUBMIX_MODEL || "gemini-3.7-flash-free";
