@@ -14,9 +14,7 @@ const openRouterApiKey = process.env.OPENROUTER_API_KEY;
 // Nemotron adalah model reasoning; pada tugas 3000-7000 token ia melewati
 // PROVIDER_TIMEOUT_MS tanpa menghasilkan apa pun, sehingga hanya membuang 60s.
 // Model seperti itu tetap berguna di layer query yang promptnya pendek.
-const openRouterProviders = [
-  { name: "openrouter-dots", model: process.env.OPENROUTER_DOTS_MODEL || "dots-studio/dots-3-note-preview:free", order: Number(process.env.PROVIDER_OPENROUTER_DOTS_ORDER || 0), longForm: true },
-].filter((provider) => provider.order > 0).sort((a, b) => a.order - b.order);
+const openRouterProviders: any[] = [];
 const aihubmixApiKey = process.env.AIHUBMIX_API_KEY;
 const aihubmixModel = process.env.AIHUBMIX_MODEL || "gemini-3.7-flash-free";
 const aihubmixBaseUrl = process.env.AIHUBMIX_BASE_URL || "https://aihubmix.com/v1";
@@ -355,7 +353,7 @@ export async function generateLandasanTeori(params: {
   let currentJournalsCount = params.journals.length;
 
   const buildContext = (modelName: string) => {
-    const isDots = modelName.toLowerCase().includes("dots") || modelName.toLowerCase().includes("toptools") || modelName.toLowerCase().includes("top-tools");
+    const isDots = modelName.toLowerCase().includes("toptools") || modelName.toLowerCase().includes("top-tools");
     // Limit to max 5 journals if using Dots to avoid timeout on large prompts
     const journalsToUse = isDots ? params.journals.slice(0, 5) : params.journals;
     
@@ -513,7 +511,7 @@ INGAT:
       qualityCheck: (candidate) => evaluateOutput(candidate, targetMinimum),
       acceptBest: true,
       requireLongForm: true,
-      onModelUsed: (m) => { usedModelRecord = m; currentJournalsCount = (m.toLowerCase().includes("dots") || m.toLowerCase().includes("toptools") || m.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 5) : params.journals.length; params.onModelUsed?.(m); },
+      onModelUsed: (m) => { usedModelRecord = m; currentJournalsCount = (m.toLowerCase().includes("toptools") || m.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 5) : params.journals.length; params.onModelUsed?.(m); },
     });
 
     const initialDraft = analyzeDraft(rawText);
@@ -580,7 +578,7 @@ Keluarkan HANYA teks landasan teori versi lengkap yang sudah diperluas.`;
             // Regresi tetap ditolak oleh isBetterDraft di bawah.
             acceptBest: true,
             requireLongForm: true,
-            onModelUsed: (m) => { usedModelRecord = m; currentJournalsCount = (m.toLowerCase().includes("dots") || m.toLowerCase().includes("toptools") || m.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 5) : params.journals.length; params.onModelUsed?.(m); },
+            onModelUsed: (m) => { usedModelRecord = m; currentJournalsCount = (m.toLowerCase().includes("toptools") || m.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 5) : params.journals.length; params.onModelUsed?.(m); },
           });
 
           const candidate = analyzeDraft(expansionText);
