@@ -354,11 +354,12 @@ export async function generateLandasanTeori(params: {
 
   const targetMinimum = params.kedalaman === "singkat" ? 300 : params.kedalaman === "menengah" ? 600 : 1000;
   const minParagraphs = Math.ceil(targetMinimum / 120);
+  let currentJournalsCount = params.journals.length;
 
   const buildContext = (modelName: string) => {
-    const isDots = modelName.toLowerCase().includes("dots");
+    const isDots = modelName.toLowerCase().includes("dots") || modelName.toLowerCase().includes("toptools") || modelName.toLowerCase().includes("top-tools");
     // Limit to max 5 journals if using Dots to avoid timeout on large prompts
-    const journalsToUse = (modelName.toLowerCase().includes("dots") || modelName.toLowerCase().includes("top-tools")) ? params.journals.slice(0, 5) : params.journals;
+    const journalsToUse = isDots ? params.journals.slice(0, 5) : params.journals;
     
     return journalsToUse
       .map((journal, index) => {
@@ -374,13 +375,13 @@ export async function generateLandasanTeori(params: {
   
   const buildPrompt = (modelName: string) => {
     const context = buildContext(modelName);
-    const journalsCount = (modelName.toLowerCase().includes("dots") || modelName.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 5) : params.journals.length;
+    const currentJournalsCount = (modelName.toLowerCase().includes("dots") || modelName.toLowerCase().includes("toptools") || modelName.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 5) : params.journals.length;
 
     return `Anda adalah asisten akademik untuk kimia analitik.
 
 Tugas: Susun bagian Landasan Teori untuk analisis "${params.judulAnalisis}" dalam BAHASA INDONESIA.
 
-Konteks: Anda diberikan ${journalsCount} abstrak jurnal ilmiah dari OpenAlex dan Semantic Scholar. Abstrak ini dalam bahasa Inggris, tapi output Anda WAJIB Bahasa Indonesia yang koheren dan akademik.
+Konteks: Anda diberikan ${currentJournalsCount} abstrak jurnal ilmiah dari OpenAlex dan Semantic Scholar. Abstrak ini dalam bahasa Inggris, tapi output Anda WAJIB Bahasa Indonesia yang koheren dan akademik.
 
 ATURAN PENULISAN WAJIB:
 1. Tulis landasan teori untuk PRAKTIKUM dengan judul "${params.judulAnalisis}". Bahas teori yang diperlukan untuk memahami praktikum tersebut, bukan laporan atau ringkasan praktikum milik peneliti lain.
@@ -389,7 +390,7 @@ ATURAN PENULISAN WAJIB:
 4. Gunakan hanya informasi yang didukung konteks sumber. Jangan mengarang angka, kondisi, hasil, nomor standar, atau prosedur.
 5. Parafrase dengan bahasa Indonesia yang ringan, jelas, dan tetap akademik. Jelaskan istilah teknis dengan kalimat sederhana saat pertama kali digunakan.
 6. Target panjang: ${TARGET_WORDS[params.kedalaman]} kata, minimal ${targetMinimum} kata, dan boleh lebih.
-7. Setiap paragraf harus memiliki sitasi [n] yang benar-benar mendukung isi paragraf. Semua sumber yang diberikan sudah lolos relevansi; sitasi setiap sumber [1] sampai [${journalsCount}] minimal satu kali pada klaim yang didukungnya.
+7. Setiap paragraf harus memiliki sitasi [n] yang benar-benar mendukung isi paragraf. Semua sumber yang diberikan sudah lolos relevansi; sitasi setiap sumber [1] sampai [${currentJournalsCount}] minimal satu kali pada klaim yang didukungnya.
 8. Jika acuan SNI tersedia dalam konteks, jelaskan kaitannya dengan sampel dan parameter praktikum. Sebut nomor/judul SNI hanya jika tertulis dalam konteks; jangan mengarang acuan.
 9. Jangan membuat daftar pustaka di dalam teks, jangan menyebut AI, instruksi, konteks sumber, atau proses pencarian.
 10. Tulis teks biasa dengan subjudul bernomor dan paragraf naratif, tanpa bullet list.
@@ -451,8 +452,8 @@ INGAT:
       paragraphs: text.split(/\n\s*\n/).map((p) => p.replace(/\s+/g, " ").trim()).filter(Boolean),
       citations,
       words: text.split(/\s+/).filter(Boolean).length,
-      missing: params.journals.map((_, i) => i + 1).filter((i) => !citations.includes(i)),
-      outOfRange: citations.some((c) => c < 1 || c > params.journals.length),
+      missing: Array.from({length: currentJournalsCount}, (_, i) => i + 1).filter((i) => !citations.includes(i)),
+      outOfRange: citations.some((c) => c < 1 || c > currentJournalsCount),
     };
   };
 
@@ -470,8 +471,8 @@ INGAT:
   // Model free-tier sering melewatkan beberapa sumber dari daftar 7 jurnal; toleransi ini
   // mencegah draft berkualitas dan sudah cukup panjang dibuang/diperluas hanya karena
   // kurang 1-2 sitasi. 3 sitasi dari 7 sumber tetap representatif secara akademik.
-  const minRequiredCitations = Math.min(3, params.journals.length);
-  const maxMissingCitations = Math.max(0, params.journals.length - minRequiredCitations);
+  const minRequiredCitations = Math.min(3, currentJournalsCount);
+  const maxMissingCitations = Math.max(0, currentJournalsCount - minRequiredCitations);
 
   const meetsThreshold = (draft: DraftStats, minimumWords: number): boolean =>
     draft.words >= minimumWords &&
@@ -492,7 +493,7 @@ INGAT:
     if (draft.paragraphs.length < minParagraphs) return { ok: false, reason: `${draft.paragraphs.length} paragraf (minimum ${minParagraphs})` };
     if (draft.citations.length === 0) return { ok: false, reason: "tanpa sitasi" };
     if (draft.outOfRange) return { ok: false, reason: "sitasi di luar daftar sumber" };
-    const citedCount = params.journals.length - draft.missing.length;
+    const citedCount = currentJournalsCount - draft.missing.length;
     if (draft.missing.length > maxMissingCitations) {
       return { ok: false, reason: `hanya ${citedCount} sumber disitasi (minimal ${minRequiredCitations}, belum disitasi: [${draft.missing.join(", ")}])` };
     }
@@ -514,10 +515,7 @@ INGAT:
       qualityCheck: (candidate) => evaluateOutput(candidate, targetMinimum),
       acceptBest: true,
       requireLongForm: true,
-      onModelUsed: (m) => { 
-        usedModelRecord = m;
-        params.onModelUsed?.(m);
-      },
+      onModelUsed: (m) => { usedModelRecord = m; currentJournalsCount = (m.toLowerCase().includes("dots") || m.toLowerCase().includes("toptools") || m.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 5) : params.journals.length; params.onModelUsed?.(m); },
     });
 
     const initialDraft = analyzeDraft(rawText);
@@ -546,7 +544,7 @@ INGAT:
         const deficits = describeDeficits(bestDraft, targetMinimum);
         const buildExpansionPrompt = (modelName: string) => {
           const basePrompt = buildPrompt(modelName);
-          const journalsCount = (modelName.toLowerCase().includes("dots") || modelName.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 5) : params.journals.length;
+          const currentJournalsCount = (modelName.toLowerCase().includes("dots") || modelName.toLowerCase().includes("toptools") || modelName.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 5) : params.journals.length;
           
           return `${basePrompt}
 
@@ -565,7 +563,7 @@ CARA MEMPERBAIKI:
 2. Perdalam penjelasan mekanisme, alasan, dan kaitannya dengan praktikum "${params.judulAnalisis}".
 3. Tambah kedalaman pada paragraf yang masih pendek; jangan menambah paragraf yang hanya mengulang.
 4. Target akhir: ${TARGET_WORDS[params.kedalaman]} kata, minimum mutlak ${targetMinimum} kata.
-5. Setiap sumber [1] sampai [${journalsCount}] wajib disitasi minimal sekali, hanya pada klaim yang didukung abstraknya.
+5. Setiap sumber [1] sampai [${currentJournalsCount}] wajib disitasi minimal sekali, hanya pada klaim yang didukung abstraknya.
 6. Tetap Bahasa Indonesia akademik, teks biasa, tanpa LaTeX, tanpa Markdown, tanpa simbol dolar.
 
 Keluarkan HANYA teks landasan teori versi lengkap yang sudah diperluas.`;
@@ -584,10 +582,7 @@ Keluarkan HANYA teks landasan teori versi lengkap yang sudah diperluas.`;
             // Regresi tetap ditolak oleh isBetterDraft di bawah.
             acceptBest: true,
             requireLongForm: true,
-            onModelUsed: (m) => {
-              usedModelRecord = m;
-              params.onModelUsed?.(m);
-            },
+            onModelUsed: (m) => { usedModelRecord = m; currentJournalsCount = (m.toLowerCase().includes("dots") || m.toLowerCase().includes("toptools") || m.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 5) : params.journals.length; params.onModelUsed?.(m); },
           });
 
           const candidate = analyzeDraft(expansionText);
