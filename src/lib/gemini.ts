@@ -24,6 +24,7 @@ const aihubmixModel = process.env.AIHUBMIX_MODEL || "gemini-3.7-flash-free";
 const aihubmixBaseUrl = process.env.AIHUBMIX_BASE_URL || "https://aihubmix.com/v1";
 const extraProviders = [
   { name: "terra", baseUrl: process.env.TERRA_API_BASE_URL, apiKey: process.env.TERRA_API_KEY, model: process.env.TERRA_MODEL || "gpt-5.6-terra", order: Number(process.env.PROVIDER_TERRA_ORDER || 0), longForm: true },
+  { name: "toptools", baseUrl: process.env.TOPTOOLS_API_BASE_URL, apiKey: process.env.TOPTOOLS_API_KEY, model: process.env.TOPTOOLS_MODEL || "top-tools-ai", order: Number(process.env.PROVIDER_TOPTOOLS_ORDER || 0), longForm: true },
 ].filter((provider) => provider.order > 0).sort((a, b) => a.order - b.order);
 const modelName = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 const fallbackModelName = process.env.GEMINI_FALLBACK_MODEL || "gemini-3.5-flash";
@@ -357,7 +358,7 @@ export async function generateLandasanTeori(params: {
   const buildContext = (modelName: string) => {
     const isDots = modelName.toLowerCase().includes("dots");
     // Limit to max 5 journals if using Dots to avoid timeout on large prompts
-    const journalsToUse = isDots ? params.journals.slice(0, 5) : params.journals;
+    const journalsToUse = (modelName.toLowerCase().includes("dots") || modelName.toLowerCase().includes("top-tools")) ? params.journals.slice(0, 5) : params.journals;
     
     return journalsToUse
       .map((journal, index) => {
@@ -373,7 +374,7 @@ export async function generateLandasanTeori(params: {
   
   const buildPrompt = (modelName: string) => {
     const context = buildContext(modelName);
-    const journalsCount = modelName.toLowerCase().includes("dots") ? Math.min(params.journals.length, 5) : params.journals.length;
+    const journalsCount = (modelName.toLowerCase().includes("dots") || modelName.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 5) : params.journals.length;
 
     return `Anda adalah asisten akademik untuk kimia analitik.
 
@@ -545,7 +546,7 @@ INGAT:
         const deficits = describeDeficits(bestDraft, targetMinimum);
         const buildExpansionPrompt = (modelName: string) => {
           const basePrompt = buildPrompt(modelName);
-          const journalsCount = modelName.toLowerCase().includes("dots") ? Math.min(params.journals.length, 5) : params.journals.length;
+          const journalsCount = (modelName.toLowerCase().includes("dots") || modelName.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 5) : params.journals.length;
           
           return `${basePrompt}
 
