@@ -14,7 +14,7 @@ const openRouterApiKey = process.env.OPENROUTER_API_KEY;
 // Nemotron adalah model reasoning; pada tugas 3000-7000 token ia melewati
 // PROVIDER_TIMEOUT_MS tanpa menghasilkan apa pun, sehingga hanya membuang 60s.
 // Model seperti itu tetap berguna di layer query yang promptnya pendek.
-const openRouterProviders: any[] = [];
+const openRouterProviders: Array<{ name: string; model: string; order: number; longForm: boolean }> = [];
 const aihubmixApiKey = process.env.AIHUBMIX_API_KEY;
 const aihubmixModel = process.env.AIHUBMIX_MODEL || "gemini-3.7-flash-free";
 const aihubmixBaseUrl = process.env.AIHUBMIX_BASE_URL || "https://aihubmix.com/v1";
