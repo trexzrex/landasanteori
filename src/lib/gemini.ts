@@ -125,11 +125,14 @@ async function generateWithAIHubMix(prompt: string, config: { temperature: numbe
 
 async function generateWithExtraProvider(provider: { name: string; baseUrl?: string; apiKey?: string; model: string }, prompt: string, config: { temperature: number; maxOutputTokens: number }): Promise<string> {
   if (!provider.baseUrl || !provider.apiKey) throw new Error(`${provider.name} belum dikonfigurasi`);
-  const timeoutMs = PROVIDER_TIMEOUT_MS;
+  const isTopTools = provider.name.toLowerCase().includes("toptools") || provider.model.toLowerCase().includes("top-tools");
+  // Batasi max_tokens untuk TopTools agar selesai dalam ~20-25s tanpa melebihi batas 60s Vercel
+  const maxTokens = isTopTools ? Math.min(config.maxOutputTokens, 1400) : config.maxOutputTokens;
+  const timeoutMs = isTopTools ? 35000 : PROVIDER_TIMEOUT_MS;
   const response = await fetch(`${provider.baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: provider.model, messages: [{ role: "user", content: prompt }], temperature: config.temperature, max_tokens: config.maxOutputTokens }),
+    body: JSON.stringify({ model: provider.model, messages: [{ role: "user", content: prompt }], temperature: config.temperature, max_tokens: maxTokens }),
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!response.ok) throw new Error(`${provider.name} API error ${response.status}: ${(await response.text().catch(() => "")).slice(0, 300)}`);
@@ -338,16 +341,16 @@ export async function generateLandasanTeori(params: {
   let currentJournalsCount = params.journals.length;
 
   const buildContext = (modelName: string) => {
-    const isDots = modelName.toLowerCase().includes("toptools") || modelName.toLowerCase().includes("top-tools");
-    // Limit to max 5 journals if using Dots to avoid timeout on large prompts
-    const journalsToUse = isDots ? params.journals.slice(0, 5) : params.journals;
+    const isTopTools = modelName.toLowerCase().includes("toptools") || modelName.toLowerCase().includes("top-tools");
+    // Limit to max 4 journals for TopTools to speed up inference and prevent Vercel 60s timeout
+    const journalsToUse = isTopTools ? params.journals.slice(0, 4) : params.journals;
     
     return journalsToUse
       .map((journal, index) => {
         let abs = journal.abstract;
-        // Truncate abstract to 500 chars if using Dots
-        if (isDots && abs.length > 500) {
-          abs = abs.substring(0, 500) + "...";
+        // Truncate abstract to 400 chars for TopTools
+        if (isTopTools && abs.length > 400) {
+          abs = abs.substring(0, 400) + "...";
         }
         return `[SUMBER ${index + 1}]\nJudul: ${journal.title}\nPenulis: ${journal.authors.join(", ")}\nTahun: ${journal.year}\nJurnal: ${journal.journal}\nAbstrak: ${abs}`;
       })
@@ -356,7 +359,8 @@ export async function generateLandasanTeori(params: {
   
   const buildPrompt = (modelName: string) => {
     const context = buildContext(modelName);
-    const currentJournalsCount = (modelName.toLowerCase().includes("dots") || modelName.toLowerCase().includes("toptools") || modelName.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 5) : params.journals.length;
+    const isTopTools = modelName.toLowerCase().includes("toptools") || modelName.toLowerCase().includes("top-tools");
+    const currentJournalsCount = isTopTools ? Math.min(params.journals.length, 4) : params.journals.length;
 
     return `Anda adalah asisten akademik untuk kimia analitik.
 
@@ -496,7 +500,7 @@ INGAT:
       qualityCheck: (candidate) => evaluateOutput(candidate, targetMinimum),
       acceptBest: true,
       requireLongForm: true,
-      onModelUsed: (m) => { usedModelRecord = m; currentJournalsCount = (m.toLowerCase().includes("toptools") || m.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 5) : params.journals.length; params.onModelUsed?.(m); },
+            onModelUsed: (m) => { usedModelRecord = m; currentJournalsCount = (m.toLowerCase().includes("toptools") || m.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 4) : params.journals.length; params.onModelUsed?.(m); },
     });
 
     const initialDraft = analyzeDraft(rawText);
@@ -525,7 +529,8 @@ INGAT:
         const deficits = describeDeficits(bestDraft, targetMinimum);
         const buildExpansionPrompt = (modelName: string) => {
           const basePrompt = buildPrompt(modelName);
-          const currentJournalsCount = (modelName.toLowerCase().includes("dots") || modelName.toLowerCase().includes("toptools") || modelName.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 5) : params.journals.length;
+          const isTopTools = modelName.toLowerCase().includes("toptools") || modelName.toLowerCase().includes("top-tools");
+          const currentJournalsCount = isTopTools ? Math.min(params.journals.length, 4) : params.journals.length;
           
           return `${basePrompt}
 
@@ -563,7 +568,7 @@ Keluarkan HANYA teks landasan teori versi lengkap yang sudah diperluas.`;
             // Regresi tetap ditolak oleh isBetterDraft di bawah.
             acceptBest: true,
             requireLongForm: true,
-            onModelUsed: (m) => { usedModelRecord = m; currentJournalsCount = (m.toLowerCase().includes("toptools") || m.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 5) : params.journals.length; params.onModelUsed?.(m); },
+      onModelUsed: (m) => { usedModelRecord = m; currentJournalsCount = (m.toLowerCase().includes("toptools") || m.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 4) : params.journals.length; params.onModelUsed?.(m); },
           });
 
           const candidate = analyzeDraft(expansionText);
