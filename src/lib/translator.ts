@@ -288,11 +288,14 @@ async function callGemini(model: string, title: string): Promise<string> {
   if (!ai) throw new Error("GEMINI_API_KEY belum dikonfigurasi");
   if (isGeminiOnCooldown(model)) throw new Error(`Gemini ${model} sedang cooldown kuota`);
 
-  const response = await ai.models.generateContent({
-    model,
-    contents: buildQueryPrompt(title),
-    config: { temperature: 0.1, maxOutputTokens: TRANSLATION_MAX_TOKENS },
-  });
+  const response = await Promise.race([
+      ai.models.generateContent({
+        model,
+        contents: buildQueryPrompt(title),
+        config: { temperature: 0.1 },
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Translator Gemini timeout 8s")), 8000))
+    ]) as any;
   const text = response.text?.trim();
   if (!text) throw new Error("Gemini mengembalikan teks kosong");
   return text;
