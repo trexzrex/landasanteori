@@ -431,6 +431,36 @@ function rankJournals(journals: JournalMetadata[], queries: string[]): JournalMe
  * Returns top 4-5 most relevant journals.
  * Supports multiple query variants for better coverage.
  */
+function levenshteinDistance(a: string, b: string): number {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  const matrix = Array.from({ length: b.length + 1 }, (_, i) => [i]);
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, 
+          matrix[i][j - 1] + 1,     
+          matrix[i - 1][j] + 1      
+        );
+      }
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+function calculateSimilarity(str1: string, str2: string): number {
+  const distance = levenshteinDistance(str1, str2);
+  const maxLength = Math.max(str1.length, str2.length);
+  if (maxLength === 0) return 1.0;
+  return 1 - (distance / maxLength);
+}
+
 export async function fetchAllSources(
   queries: string[]
 ): Promise<JournalMetadata[]> {
@@ -440,15 +470,32 @@ export async function fetchAllSources(
   if (supabase && normalizedMainQuery) {
     console.log(`[RAG CACHE] Memeriksa cache untuk query: "${normalizedMainQuery}"`);
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('journal_cache')
-        .select('journals')
-        .eq('search_query', normalizedMainQuery)
-        .single();
+        .select('search_query, journals');
+      
+      if (!error && data && data.length > 0) {
+        let bestMatch = null;
+        let bestScore = 0;
         
-      if (data && data.journals && Array.isArray(data.journals) && data.journals.length > 0) {
-        console.log(`[RAG CACHE] ✅ Ditemukan ${data.journals.length} jurnal di cache. Melewati fetch eksternal.`);
-        return data.journals as JournalMetadata[];
+        for (const row of data) {
+          const score = calculateSimilarity(normalizedMainQuery, row.search_query);
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = row;
+          }
+        }
+        
+        if (bestMatch && bestScore >= 0.90) {
+          if (bestMatch.journals && Array.isArray(bestMatch.journals) && bestMatch.journals.length > 0) {
+            console.log("[RAG CACHE] ? Ditemukan " + bestMatch.journals.length + " jurnal di cache (Kecocokan: " + (bestScore * 100).toFixed(1) + "% dengan '" + bestMatch.search_query + "'). Melewati fetch eksternal.");
+            const allCached = bestMatch.journals as JournalMetadata[];
+            const rankedCached = rankJournals(allCached, queries);
+            return rankedCached.slice(0, 7);
+          }
+        } else {
+           console.log("[RAG CACHE] Tidak ada yang cukup mirip (Tertinggi: " + (bestScore * 100).toFixed(1) + "%).");
+        }
       }
     } catch (err) {
       console.warn("[RAG CACHE] Cache miss atau gagal membaca cache:", (err as Error).message || err);

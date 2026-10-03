@@ -218,17 +218,6 @@ async function generateWithFallbacks(
       },
     })),
     
-    // AIHubMix
-    {
-      order: Number(process.env.PROVIDER_AIHUBMIX_ORDER || 0),
-      name: "aihubmix",
-      label: `AIHubMix · ${aihubmixModel}`,
-      longForm: true,
-      run: () => {
-        const p = typeof promptInput === "function" ? promptInput(aihubmixModel) : promptInput;
-        return generateWithAIHubMix(p, config);
-      },
-    },
   ]
     .filter((provider) => provider.order > 0)
     .filter((provider) => {
