@@ -169,7 +169,7 @@ async function generateWithFallbacks(
           const p = typeof promptInput === "function" ? promptInput(modelName) : promptInput;
           const response = await Promise.race([
             ai.models.generateContent({ model: modelName, contents: p, config: { ...config, thinkingConfig: { thinkingBudget: 0 } } }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("Gemini timeout 12s")), 12000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Gemini timeout 8s")), 8000))
           ]) as any;
           if (!response.text) throw new Error("Empty response from Gemini");
           return response.text;
@@ -178,14 +178,14 @@ async function generateWithFallbacks(
       {
         order: Number(process.env.PROVIDER_GEMINI_35_ORDER || 0),
         name: "gemini-3.5",
-        label: "Gemini " + modelName,
+        label: "Gemini " + fallbackModelName,
         longForm: true,
         run: async () => {
-          if (isGeminiOnCooldown(modelName)) throw new Error("Gemini " + modelName + " on cooldown");
+          if (isGeminiOnCooldown(fallbackModelName)) throw new Error("Gemini " + fallbackModelName + " on cooldown");
           const p = typeof promptInput === "function" ? promptInput(fallbackModelName) : promptInput;
           const response = await Promise.race([
             ai.models.generateContent({ model: fallbackModelName, contents: p, config: { ...config, thinkingConfig: { thinkingBudget: 0 } } }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("Gemini timeout 12s")), 12000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Gemini timeout 8s")), 8000))
           ]) as any;
           if (!response.text) throw new Error("Empty response from Gemini");
           return response.text;
