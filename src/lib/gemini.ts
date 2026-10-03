@@ -162,10 +162,10 @@ async function generateWithFallbacks(
       {
         order: Number(process.env.PROVIDER_GEMINI_36_ORDER || 0),
         name: "gemini-3.6",
-        label: Gemini � ,
+        label: "Gemini " + modelName,
         longForm: true,
         run: async () => {
-          if (isGeminiOnCooldown(modelName)) throw new Error(Gemini  on cooldown (quota exceeded));
+          if (isGeminiOnCooldown(modelName)) throw new Error("Gemini " + modelName + " on cooldown");
           const p = typeof promptInput === "function" ? promptInput(modelName) : promptInput;
           const response = await Promise.race([
             ai.models.generateContent({ model: modelName, contents: p, config: { ...config, thinkingConfig: { thinkingBudget: 0 } } }),
@@ -178,10 +178,10 @@ async function generateWithFallbacks(
       {
         order: Number(process.env.PROVIDER_GEMINI_35_ORDER || 0),
         name: "gemini-3.5",
-        label: Gemini � ,
+        label: "Gemini " + modelName,
         longForm: true,
         run: async () => {
-          if (isGeminiOnCooldown(fallbackModelName)) throw new Error(Gemini  on cooldown (quota exceeded));
+          if (isGeminiOnCooldown(modelName)) throw new Error("Gemini " + modelName + " on cooldown");
           const p = typeof promptInput === "function" ? promptInput(fallbackModelName) : promptInput;
           const response = await Promise.race([
             ai.models.generateContent({ model: fallbackModelName, contents: p, config: { ...config, thinkingConfig: { thinkingBudget: 0 } } }),
@@ -249,7 +249,7 @@ async function generateWithFallbacks(
     }
 
     try {
-      console.log(?? Mengirim request ke model: );
+      console.log("Mengirim request ke model: " + provider.name);
       const text = await provider.run();
       
       // EARLY DETECTION: Check for severe underperformance (e.g., AIHubMix 27-words bug)
