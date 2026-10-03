@@ -305,16 +305,8 @@ async function callGemini(model: string, title: string): Promise<string> {
  * perubahan env berlaku tanpa restart proses.
  */
 function buildTranslationProviders(): TranslationProvider[] {
-  const openRouterEntries = [
-    { name: "openrouter-minimax", model: process.env.OPENROUTER_MINIMAX_MODEL || "minimax/minimax-m3:free", order: Number(process.env.PROVIDER_OPENROUTER_MINIMAX_ORDER || 0) },
-    { name: "openrouter-nvidia", model: process.env.OPENROUTER_MODEL || "nvidia/nemotron-3-ultra-550b-a55b:free", order: Number(process.env.PROVIDER_OPENROUTER_NVIDIA_ORDER || 0) },
-    { name: "openrouter-glm", model: process.env.OPENROUTER_FALLBACK_MODEL || "z-ai/glm-5.2:free", order: Number(process.env.PROVIDER_OPENROUTER_GLM_ORDER || 0) },
-  ];
-
   const extraEntries = [
-    { name: "terra", baseUrl: process.env.TERRA_API_BASE_URL, apiKey: process.env.TERRA_API_KEY, model: process.env.TERRA_MODEL || "gpt-5.6-terra", order: Number(process.env.PROVIDER_TERRA_ORDER || 0) },
-    { name: "freetokenfaucet", baseUrl: process.env.FREETOKENFAUCET_API_BASE_URL, apiKey: process.env.FREETOKENFAUCET_API_KEY, model: process.env.FREETOKENFAUCET_MODEL || "gpt-5.6-terra", order: Number(process.env.PROVIDER_FREETOKENFAUCET_ORDER || 0) },
-    { name: "aihubmix", baseUrl: process.env.AIHUBMIX_BASE_URL || "https://aihubmix.com/v1", apiKey: process.env.AIHUBMIX_API_KEY, model: process.env.AIHUBMIX_MODEL || "gemini-3.7-flash-free", order: Number(process.env.PROVIDER_AIHUBMIX_ORDER || 0) },
+    { name: "toptools", baseUrl: process.env.TOPTOOLS_API_BASE_URL, apiKey: process.env.TOPTOOLS_API_KEY, model: process.env.TOPTOOLS_MODEL || "top-tools-ai", order: Number(process.env.PROVIDER_TOPTOOLS_ORDER || 0) },
   ];
 
   const providers: TranslationProvider[] = [
@@ -322,43 +314,29 @@ function buildTranslationProviders(): TranslationProvider[] {
       {
         order: Number(process.env.PROVIDER_GEMINI_36_ORDER || 0),
         name: "gemini-3.6",
-        label: `Gemini · ${geminiModel}`,
+        label: "Gemini " + geminiModel,
         run: (title: string) => callGemini(geminiModel, title),
       },
       {
         order: Number(process.env.PROVIDER_GEMINI_35_ORDER || 0),
         name: "gemini-3.5",
-        label: `Gemini · ${geminiFallbackModel}`,
+        label: "Gemini " + geminiFallbackModel,
         run: (title: string) => callGemini(geminiFallbackModel, title),
       },
     ] : []),
 
-    ...openRouterEntries
-      .filter((entry) => openRouterApiKey)
-      .map((entry) => ({
-        order: entry.order,
-        name: entry.name,
-        label: `OpenRouter · ${entry.model}`,
-        run: (title: string) => callOpenAiCompatible(
-          { name: entry.name, baseUrl: openRouterBaseUrl, apiKey: openRouterApiKey as string, model: entry.model, isOpenRouter: true },
-          title
-        ),
-      })),
-
-    ...extraEntries
-      .filter((entry) => entry.baseUrl && entry.apiKey)
-      .map((entry) => ({
-        order: entry.order,
-        name: entry.name,
-        label: `${entry.name} · ${entry.model}`,
-        run: (title: string) => callOpenAiCompatible(
-          { name: entry.name, baseUrl: entry.baseUrl as string, apiKey: entry.apiKey as string, model: entry.model },
-          title
-        ),
-      })),
+    ...extraEntries.map((provider) => ({
+      order: provider.order,
+      name: provider.name,
+      label: provider.name + " � " + provider.model,
+      run: (title: string) => callOpenAiCompatible(
+        { name: provider.name, baseUrl: provider.baseUrl as string, apiKey: provider.apiKey as string, model: provider.model },
+        title
+      ),
+    })),
   ];
 
-  return providers.filter((provider) => provider.order > 0).sort((a, b) => a.order - b.order);
+  return providers.filter((p) => p.order > 0).sort((a, b) => a.order - b.order);
 }
 
 async function translateWithPriority(title: string): Promise<TranslationResult | null> {
