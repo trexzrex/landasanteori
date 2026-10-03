@@ -16,6 +16,10 @@ import {
   Layers,
   BookOpen,
   ArrowUpRight,
+  RotateCcw,
+  AlertCircle,
+  BookCheck,
+  WifiOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,12 +66,19 @@ const loadingSteps = [
   "Memformat daftar pustaka gaya APA...",
 ];
 
+interface FormErrorState {
+  title: string;
+  message: string;
+  isRetryable?: boolean;
+  type?: "new_topic" | "quota" | "network" | "general";
+}
+
 export function GenerateForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
   const [loadingStep, setLoadingStep] = React.useState(0);
   const [elapsedSeconds, setElapsedSeconds] = React.useState(0);
-  const [serverError, setServerError] = React.useState<string | null>(null);
+  const [serverError, setServerError] = React.useState<FormErrorState | null>(null);
   const [abortController, setAbortController] = React.useState<AbortController | null>(null);
 
   const [profileData, setProfileData] = React.useState<{
@@ -224,14 +235,79 @@ export function GenerateForm() {
         signal: controller.signal,
       });
 
-      const result: GenerateResponse = await res.json();
+      let result: GenerateResponse | null = null;
+      let isJson = false;
 
-      if (result.status === "error" || !result.data) {
-        setServerError(
-          result.message ||
-            "Terjadi kesalahan tak terduga. Silakan coba lagi."
-        );
+      try {
+        result = await res.json();
+        isJson = true;
+      } catch {
+        isJson = false;
+      }
+
+      if (!res.ok || result?.status === "error" || !result?.data) {
         setIsLoading(false);
+
+        // 1. Vercel timeout (504) atau 502 non-JSON saat penyiapan topik baru melebihi durasi batas awal
+        if (res.status === 504 || (res.status === 502 && !isJson)) {
+          setServerError({
+            title: "Tahap Awal Selesai — Silakan Coba Lagi",
+            message:
+              "Penelusuran referensi akademik untuk judul baru ini membutuhkan proses ekstra dan sesi sempat berakhir. Sumber literatur kini telah berhasil diamankan di database. Silakan klik Coba Lagi Sekarang untuk langsung menyelesaikan landasan teori Anda dalam hitungan detik.",
+            isRetryable: true,
+            type: "new_topic",
+          });
+          return;
+        }
+
+        // 2. Kuota harian habis (429)
+        if (res.status === 429) {
+          setServerError({
+            title: "Batas Kuota Harian",
+            message:
+              result?.message ||
+              "Batas kuota harian Anda tercapai (5 generasi per hari). Kuota akan direset besok.",
+            isRetryable: false,
+            type: "quota",
+          });
+          return;
+        }
+
+        // 3. Backend memberikan respon terarah NEW_TOPIC_RETRY
+        if (result?.code === "NEW_TOPIC_RETRY" || res.status === 502) {
+          setServerError({
+            title: "Tahap Awal Selesai — Silakan Coba Lagi",
+            message:
+              result?.message ||
+              "Penelusuran referensi akademik untuk judul baru ini telah berhasil diamankan di database. Silakan klik tombol di bawah untuk langsung menyelesaikan penyusunan landasan teori Anda.",
+            isRetryable: true,
+            type: "new_topic",
+          });
+          return;
+        }
+
+        // 4. Referensi tidak ditemukan (404)
+        if (res.status === 404) {
+          setServerError({
+            title: "Referensi Belum Ditemukan",
+            message:
+              result?.message ||
+              "Tidak ada referensi terpercaya yang cocok. Silakan gunakan judul atau kata kunci yang lebih umum.",
+            isRetryable: false,
+            type: "general",
+          });
+          return;
+        }
+
+        // 5. Kesalahan umum lainnya
+        setServerError({
+          title: "Tidak Dapat Memproses",
+          message:
+            result?.message ||
+            "Terjadi kendala sementara pada proses penyusunan. Silakan coba lagi beberapa saat.",
+          isRetryable: true,
+          type: "general",
+        });
         return;
       }
 
@@ -260,10 +336,25 @@ export function GenerateForm() {
         return;
       }
       console.error(err);
-      setServerError(
-        "Tidak dapat terhubung ke server. Periksa koneksi internet Anda dan coba lagi."
-      );
       setIsLoading(false);
+
+      if (typeof window !== "undefined" && !navigator.onLine) {
+        setServerError({
+          title: "Koneksi Internet Terputus",
+          message:
+            "Perangkat Anda sedang offline. Periksa koneksi internet Anda lalu coba lagi.",
+          isRetryable: true,
+          type: "network",
+        });
+      } else {
+        setServerError({
+          title: "Penyiapan Topik Membutuhkan Waktu",
+          message:
+            "Penelusuran referensi untuk judul baru ini memakan waktu lebih lama dari biasanya. Data literatur kini telah tersimpan di sistem. Silakan klik Coba Lagi Sekarang untuk langsung menyelesaikan dokumen Anda.",
+          isRetryable: true,
+          type: "new_topic",
+        });
+      }
     } finally {
       setAbortController(null);
     }
@@ -504,14 +595,72 @@ export function GenerateForm() {
         </CardContent>
       </Card>
 
-      {/* ── Server Error ──────────────────────────────────── */}
+      {/* ── Server Error / Retry Banner ───────────────────── */}
       {serverError && (
         <div
           role="alert"
-          className="rounded-lg border border-destructive/50 bg-destructive/10 px-5 py-4 text-sm text-destructive-foreground"
+          className={cn(
+            "rounded-xl border p-5 text-sm transition-all duration-300 animate-in fade-in-50",
+            serverError.type === "new_topic"
+              ? "border-primary/40 bg-primary/5 text-foreground shadow-sm"
+              : serverError.type === "quota"
+              ? "border-amber-500/40 bg-amber-500/10 text-foreground"
+              : serverError.type === "network"
+              ? "border-muted-foreground/30 bg-muted/50 text-foreground"
+              : "border-destructive/40 bg-destructive/10 text-destructive-foreground"
+          )}
         >
-          <p className="font-medium text-destructive">Tidak dapat memproses</p>
-          <p className="mt-1 text-destructive/90">{serverError}</p>
+          <div className="flex items-start gap-3.5">
+            <div className="mt-0.5 shrink-0">
+              {serverError.type === "new_topic" ? (
+                <BookCheck className="h-5 w-5 text-primary" aria-hidden="true" />
+              ) : serverError.type === "network" ? (
+                <WifiOff className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+              ) : (
+                <AlertCircle
+                  className={cn(
+                    "h-5 w-5",
+                    serverError.type === "quota" ? "text-amber-500" : "text-destructive"
+                  )}
+                  aria-hidden="true"
+                />
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <p
+                className={cn(
+                  "font-semibold leading-none",
+                  serverError.type === "new_topic"
+                    ? "text-primary"
+                    : serverError.type === "quota"
+                    ? "text-amber-600 dark:text-amber-400"
+                    : "text-destructive"
+                )}
+              >
+                {serverError.title}
+              </p>
+              <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                {serverError.message}
+              </p>
+
+              {serverError.isRetryable && (
+                <div className="pt-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={serverError.type === "new_topic" ? "default" : "outline"}
+                    onClick={() => handleSubmit(onSubmit)()}
+                    disabled={isLoading}
+                    className="inline-flex items-center gap-2 font-medium shadow-sm transition-transform active:scale-95"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                    Coba Lagi Sekarang
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

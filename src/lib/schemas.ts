@@ -47,6 +47,7 @@ export type GenerateFormData = z.infer<typeof generateFormSchema>;
  */
 export interface GenerateResponse {
   status: "success" | "error";
+  code?: string;
   message: string;
   data?: {
     generation_id: string | null;

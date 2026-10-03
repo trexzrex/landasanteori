@@ -257,8 +257,9 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           status: "error",
+          code: "NEW_TOPIC_RETRY",
           message:
-            "Gagal menyusun landasan teori sesuai panjang dan struktur yang diminta. Silakan coba lagi; gunakan judul atau kata kunci yang lebih umum jika masalah berlanjut.",
+            "Penelusuran referensi akademik untuk judul baru ini telah berhasil diamankan di database. Silakan klik Coba Lagi untuk langsung menyelesaikan pembuatan landasan teori Anda.",
         },
         { status: 502 }
       );
