@@ -106,9 +106,9 @@ async function generateWithOpenRouterModel(model: string, prompt: string, config
 async function generateWithExtraProvider(provider: { name: string; baseUrl?: string; apiKey?: string; model: string }, prompt: string, config: { temperature: number; maxOutputTokens: number }): Promise<string> {
   if (!provider.baseUrl || !provider.apiKey) throw new Error(`${provider.name} belum dikonfigurasi`);
   const isApinex = provider.name.toLowerCase().includes("apinex") || provider.model.toLowerCase().includes("deepseek");
-  // Apinex (DeepSeek reasoning) memerlukan ruang token penalaran + output, plafon 6000 memberi ruang sangat aman
-  const maxTokens = isApinex ? 6000 : config.maxOutputTokens;
-  const timeoutMs = isApinex ? 40000 : PROVIDER_TIMEOUT_MS;
+  // Plafon 5000 adalah sweet-spot Apinex: penalaran tuntas cepat (~8-13s) dan draf utuh
+  const maxTokens = isApinex ? 5000 : config.maxOutputTokens;
+  const timeoutMs = isApinex ? 30000 : PROVIDER_TIMEOUT_MS;
   const response = await fetch(`${provider.baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
