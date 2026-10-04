@@ -128,7 +128,7 @@ async function generateWithExtraProvider(provider: { name: string; baseUrl?: str
   const isTopTools = provider.name.toLowerCase().includes("toptools") || provider.model.toLowerCase().includes("top-tools");
   // Batasi max_tokens untuk TopTools agar selesai dalam ~20-25s tanpa melebihi batas 60s Vercel
   const maxTokens = isTopTools ? Math.min(config.maxOutputTokens, 1400) : config.maxOutputTokens;
-  const timeoutMs = isTopTools ? 35000 : PROVIDER_TIMEOUT_MS;
+  const timeoutMs = isTopTools ? 45000 : PROVIDER_TIMEOUT_MS;
   const response = await fetch(`${provider.baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
@@ -414,7 +414,8 @@ INGAT:
   };
 
   const deadline = Date.now() + TOTAL_BUDGET_MS;
-  const tolerance = Math.floor(targetMinimum * 0.95);
+  const tolerance = Math.floor(targetMinimum * 0.90);
+  const smartWordsThreshold = Math.floor(targetMinimum * 0.85);
 
   type DraftStats = {
     text: string;
@@ -447,7 +448,7 @@ INGAT:
     if (draft.words < minimumWords) deficits.push(`Panjang baru ${draft.words} kata, kurang ${minimumWords - draft.words} kata dari minimum ${minimumWords}`);
     if (draft.paragraphs.length < minParagraphs) deficits.push(`Baru ${draft.paragraphs.length} paragraf, minimum ${minParagraphs}`);
     if (draft.citations.length === 0) deficits.push("Belum ada sitasi sama sekali");
-    if (draft.outOfRange) deficits.push(`Ada sitasi di luar rentang [1]-[${params.journals.length}]; hapus atau ganti`);
+    if (draft.outOfRange) deficits.push(`Ada sitasi di luar rentang [1]-[${currentJournalsCount}]; hapus atau ganti`);
     if (draft.missing.length > 0) deficits.push(`Sumber belum disitasi: [${draft.missing.join(", ")}]`);
     return deficits;
   };
@@ -459,12 +460,25 @@ INGAT:
   const minRequiredCitations = Math.min(3, currentJournalsCount);
   const maxMissingCitations = Math.max(0, currentJournalsCount - minRequiredCitations);
 
-  const meetsThreshold = (draft: DraftStats, minimumWords: number): boolean =>
-    draft.words >= minimumWords &&
-    draft.paragraphs.length >= minParagraphs &&
-    draft.citations.length > 0 &&
-    !draft.outOfRange &&
-    draft.missing.length <= maxMissingCitations;
+  const meetsThreshold = (draft: DraftStats, minimumWords: number): boolean => {
+    const meetsCitationsAndStructure =
+      draft.paragraphs.length >= minParagraphs &&
+      draft.citations.length > 0 &&
+      !draft.outOfRange &&
+      draft.missing.length <= maxMissingCitations;
+
+    // Lolos jika memenuhi kata reguler/toleransi
+    if (draft.words >= minimumWords && meetsCitationsAndStructure) {
+      return true;
+    }
+
+    // Smart Threshold: Lolos jika mencapai >= 85% target kata DAN sitasi/struktur akademik terpenuhi
+    if (draft.words >= smartWordsThreshold && meetsCitationsAndStructure) {
+      return true;
+    }
+
+    return false;
+  };
 
   // Draft dianggap lebih baik bila sitasi yang hilang lebih sedikit; jika sama, yang lebih panjang menang
   const isBetterDraft = (candidate: DraftStats, current: DraftStats): boolean =>
@@ -474,6 +488,17 @@ INGAT:
 
   const evaluateOutput = (candidate: string, minimumWords: number): { ok: boolean; reason?: string } => {
     const draft = analyzeDraft(candidate);
+    const meetsCitationsAndStructure =
+      draft.paragraphs.length >= minParagraphs &&
+      draft.citations.length > 0 &&
+      !draft.outOfRange &&
+      draft.missing.length <= maxMissingCitations;
+
+    // Smart Threshold: Lolos langsung jika mencapai >= 85% target kata DAN sitasi/struktur akademik lengkap
+    if (draft.words >= smartWordsThreshold && meetsCitationsAndStructure) {
+      return { ok: true };
+    }
+
     if (draft.words < minimumWords) return { ok: false, reason: `${draft.words} kata (minimum ${minimumWords})` };
     if (draft.paragraphs.length < minParagraphs) return { ok: false, reason: `${draft.paragraphs.length} paragraf (minimum ${minParagraphs})` };
     if (draft.citations.length === 0) return { ok: false, reason: "tanpa sitasi" };
