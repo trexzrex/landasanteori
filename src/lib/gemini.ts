@@ -15,12 +15,15 @@ const openRouterApiKey = process.env.OPENROUTER_API_KEY;
 // PROVIDER_TIMEOUT_MS tanpa menghasilkan apa pun, sehingga hanya membuang 60s.
 // Model seperti itu tetap berguna di layer query yang promptnya pendek.
 const openRouterProviders: Array<{ name: string; model: string; order: number; longForm: boolean }> = [];
-const aihubmixApiKey = process.env.AIHUBMIX_API_KEY;
-const aihubmixModel = process.env.AIHUBMIX_MODEL || "gemini-3.7-flash-free";
-const aihubmixBaseUrl = process.env.AIHUBMIX_BASE_URL || "https://aihubmix.com/v1";
 const extraProviders = [
-  { name: "terra", baseUrl: process.env.TERRA_API_BASE_URL, apiKey: process.env.TERRA_API_KEY, model: process.env.TERRA_MODEL || "gpt-5.6-terra", order: Number(process.env.PROVIDER_TERRA_ORDER || 0), longForm: true },
-  { name: "toptools", baseUrl: process.env.TOPTOOLS_API_BASE_URL, apiKey: process.env.TOPTOOLS_API_KEY, model: process.env.TOPTOOLS_MODEL || "top-tools-ai", order: Number(process.env.PROVIDER_TOPTOOLS_ORDER || 0), longForm: true },
+  {
+    name: "apinex",
+    baseUrl: process.env.APINEX_BASE_URL || "https://api.apinex.bond/v1",
+    apiKey: process.env.APINEX_API_KEY,
+    model: process.env.APINEX_MODEL || "free/deepseek-v4-pro-0813",
+    order: Number(process.env.PROVIDER_APINEX_ORDER || 0),
+    longForm: true,
+  },
 ].filter((provider) => provider.order > 0).sort((a, b) => a.order - b.order);
 const modelName = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 const fallbackModelName = process.env.GEMINI_FALLBACK_MODEL || "gemini-3.5-flash";
@@ -100,35 +103,11 @@ async function generateWithOpenRouterModel(model: string, prompt: string, config
   return text;
 }
 
-async function generateWithAIHubMix(prompt: string, config: { temperature: number; maxOutputTokens: number }): Promise<string> {
-  if (!aihubmixApiKey) throw new Error("AIHUBMIX_API_KEY belum dikonfigurasi");
-  const response = await fetch(`${aihubmixBaseUrl}/chat/completions`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${aihubmixApiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: aihubmixModel,
-      messages: [{ role: "user", content: prompt }],
-      temperature: config.temperature,
-      max_tokens: config.maxOutputTokens,
-    }),
-    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
-  });
-  if (!response.ok) {
-    throw new Error(`AIHubMix API error ${response.status}: ${(await response.text().catch(() => "")).slice(0, 300)}`);
-  }
-  const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-  const text = data.choices?.[0]?.message?.content?.trim();
-  if (!text) throw new Error("AIHubMix mengembalikan teks kosong");
-  console.log(`✅ AIHubMix sukses dengan model ${aihubmixModel}`);
-  return text;
-}
-
 async function generateWithExtraProvider(provider: { name: string; baseUrl?: string; apiKey?: string; model: string }, prompt: string, config: { temperature: number; maxOutputTokens: number }): Promise<string> {
   if (!provider.baseUrl || !provider.apiKey) throw new Error(`${provider.name} belum dikonfigurasi`);
-  const isTopTools = provider.name.toLowerCase().includes("toptools") || provider.model.toLowerCase().includes("top-tools");
-  // Batasi max_tokens untuk TopTools agar selesai dalam ~20-25s tanpa melebihi batas 60s Vercel
-  const maxTokens = isTopTools ? Math.min(config.maxOutputTokens, 1400) : config.maxOutputTokens;
-  const timeoutMs = isTopTools ? 45000 : PROVIDER_TIMEOUT_MS;
+  const isApinex = provider.name.toLowerCase().includes("apinex") || provider.model.toLowerCase().includes("deepseek");
+  const maxTokens = isApinex ? Math.max(config.maxOutputTokens, 5000) : config.maxOutputTokens;
+  const timeoutMs = isApinex ? 45000 : PROVIDER_TIMEOUT_MS;
   const response = await fetch(`${provider.baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
@@ -338,29 +317,18 @@ export async function generateLandasanTeori(params: {
 
   const targetMinimum = params.kedalaman === "singkat" ? 300 : params.kedalaman === "menengah" ? 600 : 1000;
   const minParagraphs = Math.ceil(targetMinimum / 120);
-  let currentJournalsCount = params.journals.length;
+  const currentJournalsCount = params.journals.length;
 
-  const buildContext = (modelName: string) => {
-    const isTopTools = modelName.toLowerCase().includes("toptools") || modelName.toLowerCase().includes("top-tools");
-    // Limit to max 4 journals for TopTools to speed up inference and prevent Vercel 60s timeout
-    const journalsToUse = isTopTools ? params.journals.slice(0, 4) : params.journals;
-    
-    return journalsToUse
+  const buildContext = () => {
+    return params.journals
       .map((journal, index) => {
-        let abs = journal.abstract;
-        // Truncate abstract to 400 chars for TopTools
-        if (isTopTools && abs.length > 400) {
-          abs = abs.substring(0, 400) + "...";
-        }
-        return `[SUMBER ${index + 1}]\nJudul: ${journal.title}\nPenulis: ${journal.authors.join(", ")}\nTahun: ${journal.year}\nJurnal: ${journal.journal}\nAbstrak: ${abs}`;
+        return `[SUMBER ${index + 1}]\nJudul: ${journal.title}\nPenulis: ${journal.authors.join(", ")}\nTahun: ${journal.year}\nJurnal: ${journal.journal}\nAbstrak: ${journal.abstract}`;
       })
       .join("\n\n");
   };
   
-  const buildPrompt = (modelName: string) => {
-    const context = buildContext(modelName);
-    const isTopTools = modelName.toLowerCase().includes("toptools") || modelName.toLowerCase().includes("top-tools");
-    const currentJournalsCount = isTopTools ? Math.min(params.journals.length, 4) : params.journals.length;
+  const buildPrompt = () => {
+    const context = buildContext();
 
     return `Anda adalah asisten akademik untuk kimia analitik.
 
@@ -525,7 +493,10 @@ INGAT:
       qualityCheck: (candidate) => evaluateOutput(candidate, tolerance),
       acceptBest: true,
       requireLongForm: true,
-            onModelUsed: (m) => { usedModelRecord = m; currentJournalsCount = (m.toLowerCase().includes("toptools") || m.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 4) : params.journals.length; params.onModelUsed?.(m); },
+      onModelUsed: (m) => {
+        usedModelRecord = m;
+        params.onModelUsed?.(m);
+      },
     });
 
     const initialDraft = analyzeDraft(rawText);
@@ -552,10 +523,8 @@ INGAT:
         }
 
         const deficits = describeDeficits(bestDraft, targetMinimum);
-        const buildExpansionPrompt = (modelName: string) => {
-          const basePrompt = buildPrompt(modelName);
-          const isTopTools = modelName.toLowerCase().includes("toptools") || modelName.toLowerCase().includes("top-tools");
-          const currentJournalsCount = isTopTools ? Math.min(params.journals.length, 4) : params.journals.length;
+        const buildExpansionPrompt = () => {
+          const basePrompt = buildPrompt();
           
           return `${basePrompt}
 
@@ -593,7 +562,10 @@ Keluarkan HANYA teks landasan teori versi lengkap yang sudah diperluas.`;
             // Regresi tetap ditolak oleh isBetterDraft di bawah.
             acceptBest: true,
             requireLongForm: true,
-      onModelUsed: (m) => { usedModelRecord = m; currentJournalsCount = (m.toLowerCase().includes("toptools") || m.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 4) : params.journals.length; params.onModelUsed?.(m); },
+            onModelUsed: (m) => {
+              usedModelRecord = m;
+              params.onModelUsed?.(m);
+            },
           });
 
           const candidate = analyzeDraft(expansionText);

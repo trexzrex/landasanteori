@@ -32,23 +32,25 @@ async function translateTitleToQueries(judul) {
     }
   }
 
-  // 2. Fallback Top Tools
-  const TOPTOOLS_API_KEY = process.env.TOPTOOLS_API_KEY;
-  const TOPTOOLS_API_BASE_URL = process.env.TOPTOOLS_API_BASE_URL || "https://top-tools-ai.com/v1";
-  const TOPTOOLS_MODEL = process.env.TOPTOOLS_MODEL || "top-tools-ai";
+  // 2. Fallback Apinex (DeepSeek v4 Pro)
+  const APINEX_API_KEY = process.env.APINEX_API_KEY;
+  const APINEX_BASE_URL = process.env.APINEX_BASE_URL || "https://api.apinex.bond/v1";
+  const APINEX_MODEL = process.env.APINEX_MODEL || "free/deepseek-v4-pro-0813";
 
-  if (TOPTOOLS_API_KEY) {
+  if (APINEX_API_KEY) {
     try {
-      const res = await fetch(${TOPTOOLS_API_BASE_URL}/chat/completions, {
+      const endpoint = APINEX_BASE_URL.replace(/\/$/, "") + "/chat/completions";
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: {
-          "Authorization": "Bearer " + TOPTOOLS_API_KEY,
+          "Authorization": "Bearer " + APINEX_API_KEY,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: TOPTOOLS_MODEL,
+          model: APINEX_MODEL,
           messages: [{ role: "user", content: prompt }],
-          temperature: 0.3
+          temperature: 0.1,
+          max_tokens: 1500
         }),
         signal: AbortSignal.timeout(15000)
       });
@@ -60,13 +62,13 @@ async function translateTitleToQueries(judul) {
         const queries = lines.filter(l => !l.toLowerCase().includes("diterjemahkan") && !l.toLowerCase().includes("berikut")).slice(0, 3);
         
         if (queries.length > 0) {
-          return { queries: queries, provider: "TopTools" };
+          return { queries: queries, provider: "Apinex" };
         }
       } else {
-         console.warn("  [!] Translasi TopTools gagal: HTTP", res.status);
+         console.warn("  [!] Translasi Apinex gagal: HTTP", res.status);
       }
     } catch (err) {
-      console.warn("  [!] Translasi TopTools gagal:", err.message);
+      console.warn("  [!] Translasi Apinex gagal:", err.message);
     }
   }
 

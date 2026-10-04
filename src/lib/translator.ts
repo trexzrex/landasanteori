@@ -309,7 +309,7 @@ async function callGemini(model: string, title: string): Promise<string> {
  */
 function buildTranslationProviders(): TranslationProvider[] {
   const extraEntries = [
-    { name: "toptools", baseUrl: process.env.TOPTOOLS_API_BASE_URL, apiKey: process.env.TOPTOOLS_API_KEY, model: process.env.TOPTOOLS_MODEL || "top-tools-ai", order: Number(process.env.PROVIDER_TOPTOOLS_ORDER || 0) },
+    { name: "apinex", baseUrl: process.env.APINEX_BASE_URL || "https://api.apinex.bond/v1", apiKey: process.env.APINEX_API_KEY, model: process.env.APINEX_MODEL || "free/deepseek-v4-pro-0813", order: Number(process.env.PROVIDER_APINEX_ORDER || 0) },
   ];
 
   const providers: TranslationProvider[] = [
@@ -331,7 +331,7 @@ function buildTranslationProviders(): TranslationProvider[] {
     ...extraEntries.map((provider) => ({
       order: provider.order,
       name: provider.name,
-      label: provider.name + " � " + provider.model,
+      label: provider.name + " (" + provider.model + ")",
       run: (title: string) => callOpenAiCompatible(
         { name: provider.name, baseUrl: provider.baseUrl as string, apiKey: provider.apiKey as string, model: provider.model },
         title
