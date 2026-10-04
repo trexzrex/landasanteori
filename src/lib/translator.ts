@@ -251,9 +251,14 @@ async function callOpenAiCompatible(
   provider: { name: string; baseUrl: string; apiKey: string; model: string; isOpenRouter?: boolean },
   title: string
 ): Promise<string> {
+  const isApinex = provider.name.toLowerCase().includes("apinex") || provider.model.toLowerCase().includes("deepseek");
+  const contentPrompt = isApinex
+    ? `${buildQueryPrompt(title)}\n\nLANGSUNG TULISKAN 3 QUERY BAHASA INGGRIS TANPA PENALARAN ATAU TEKS PENGANTAR.`
+    : buildQueryPrompt(title);
+
   const payload: Record<string, unknown> = {
     model: provider.model,
-    messages: [{ role: "user", content: buildQueryPrompt(title) }],
+    messages: [{ role: "user", content: contentPrompt }],
     temperature: 0.1,
     max_tokens: TRANSLATION_MAX_TOKENS,
   };

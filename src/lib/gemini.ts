@@ -106,8 +106,8 @@ async function generateWithOpenRouterModel(model: string, prompt: string, config
 async function generateWithExtraProvider(provider: { name: string; baseUrl?: string; apiKey?: string; model: string }, prompt: string, config: { temperature: number; maxOutputTokens: number }): Promise<string> {
   if (!provider.baseUrl || !provider.apiKey) throw new Error(`${provider.name} belum dikonfigurasi`);
   const isApinex = provider.name.toLowerCase().includes("apinex") || provider.model.toLowerCase().includes("deepseek");
-  // Apinex (DeepSeek) membutuhkan ruang token reasoning (~2000-2500) + output (~2500), plafon 5000 adalah batas ideal
-  const maxTokens = isApinex ? 5000 : config.maxOutputTokens;
+  // Apinex (DeepSeek reasoning) memerlukan ruang token penalaran + output, plafon 5500 memberi ruang aman
+  const maxTokens = isApinex ? 5500 : config.maxOutputTokens;
   const timeoutMs = isApinex ? 38000 : PROVIDER_TIMEOUT_MS;
   const response = await fetch(`${provider.baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
@@ -116,9 +116,12 @@ async function generateWithExtraProvider(provider: { name: string; baseUrl?: str
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!response.ok) throw new Error(`${provider.name} API error ${response.status}: ${(await response.text().catch(() => "")).slice(0, 300)}`);
-  const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+  const data = await response.json() as { choices?: Array<{ message?: { content?: string }; finish_reason?: string }> };
   const text = data.choices?.[0]?.message?.content?.trim();
-  if (!text) throw new Error(`${provider.name} mengembalikan teks kosong`);
+  if (!text) {
+    const finish = data.choices?.[0]?.finish_reason;
+    throw new Error(`${provider.name} mengembalikan teks kosong (finish_reason: ${finish || "unknown"})`);
+  }
   console.log(`✅ Provider ${provider.name} sukses dengan model ${provider.model}`);
   return text;
 }
@@ -340,8 +343,11 @@ export async function generateLandasanTeori(params: {
     const context = buildContext(modelName);
     const isApinex = modelName ? (modelName.toLowerCase().includes("apinex") || modelName.toLowerCase().includes("deepseek")) : false;
     const activeJournalsCount = isApinex ? Math.min(params.journals.length, 5) : params.journals.length;
+    const apinexDirective = isApinex
+      ? `\nINSTRUKSI KHUSUS: LANGSUNG TULISKAN TEKS LANDASAN TEORI DENGAN LENGKAP TANPA PENALARAN/THINKING YANG PANJANG.\n`
+      : "";
 
-    return `Anda adalah asisten akademik untuk kimia analitik.
+    return `Anda adalah asisten akademik untuk kimia analitik.${apinexDirective}
 
 Tugas: Susun bagian Landasan Teori untuk analisis "${params.judulAnalisis}" dalam BAHASA INDONESIA.
 
