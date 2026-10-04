@@ -106,8 +106,9 @@ async function generateWithOpenRouterModel(model: string, prompt: string, config
 async function generateWithExtraProvider(provider: { name: string; baseUrl?: string; apiKey?: string; model: string }, prompt: string, config: { temperature: number; maxOutputTokens: number }): Promise<string> {
   if (!provider.baseUrl || !provider.apiKey) throw new Error(`${provider.name} belum dikonfigurasi`);
   const isApinex = provider.name.toLowerCase().includes("apinex") || provider.model.toLowerCase().includes("deepseek");
-  const maxTokens = isApinex ? Math.max(config.maxOutputTokens, 5000) : config.maxOutputTokens;
-  const timeoutMs = isApinex ? 45000 : PROVIDER_TIMEOUT_MS;
+  // Batasi max_tokens untuk Apinex agar selesai dalam ~15-18s tanpa mendekati batas 60s Vercel
+  const maxTokens = isApinex ? Math.min(config.maxOutputTokens, 3500) : config.maxOutputTokens;
+  const timeoutMs = isApinex ? 35000 : PROVIDER_TIMEOUT_MS;
   const response = await fetch(`${provider.baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
@@ -317,24 +318,34 @@ export async function generateLandasanTeori(params: {
 
   const targetMinimum = params.kedalaman === "singkat" ? 300 : params.kedalaman === "menengah" ? 600 : 1000;
   const minParagraphs = Math.ceil(targetMinimum / 120);
-  const currentJournalsCount = params.journals.length;
+  let currentJournalsCount = params.journals.length;
 
-  const buildContext = () => {
-    return params.journals
+  const buildContext = (modelName?: string) => {
+    const isApinex = modelName ? (modelName.toLowerCase().includes("apinex") || modelName.toLowerCase().includes("deepseek")) : false;
+    // Limit to max 5 journals and 600 chars per abstract for Apinex to ensure ~15-18s inference
+    const journalsToUse = isApinex ? params.journals.slice(0, 5) : params.journals;
+
+    return journalsToUse
       .map((journal, index) => {
-        return `[SUMBER ${index + 1}]\nJudul: ${journal.title}\nPenulis: ${journal.authors.join(", ")}\nTahun: ${journal.year}\nJurnal: ${journal.journal}\nAbstrak: ${journal.abstract}`;
+        let abs = journal.abstract;
+        if (isApinex && abs.length > 600) {
+          abs = abs.substring(0, 600) + "...";
+        }
+        return `[SUMBER ${index + 1}]\nJudul: ${journal.title}\nPenulis: ${journal.authors.join(", ")}\nTahun: ${journal.year}\nJurnal: ${journal.journal}\nAbstrak: ${abs}`;
       })
       .join("\n\n");
   };
   
-  const buildPrompt = () => {
-    const context = buildContext();
+  const buildPrompt = (modelName?: string) => {
+    const context = buildContext(modelName);
+    const isApinex = modelName ? (modelName.toLowerCase().includes("apinex") || modelName.toLowerCase().includes("deepseek")) : false;
+    const activeJournalsCount = isApinex ? Math.min(params.journals.length, 5) : params.journals.length;
 
     return `Anda adalah asisten akademik untuk kimia analitik.
 
 Tugas: Susun bagian Landasan Teori untuk analisis "${params.judulAnalisis}" dalam BAHASA INDONESIA.
 
-Konteks: Anda diberikan ${currentJournalsCount} abstrak jurnal ilmiah dari OpenAlex dan Semantic Scholar. Abstrak ini dalam bahasa Inggris, tapi output Anda WAJIB Bahasa Indonesia yang koheren dan akademik.
+Konteks: Anda diberikan ${activeJournalsCount} abstrak jurnal ilmiah dari OpenAlex dan Semantic Scholar. Abstrak ini dalam bahasa Inggris, tapi output Anda WAJIB Bahasa Indonesia yang koheren dan akademik.
 
 ATURAN PENULISAN WAJIB:
 1. Tulis landasan teori untuk PRAKTIKUM dengan judul "${params.judulAnalisis}". Bahas teori yang diperlukan untuk memahami praktikum tersebut, bukan laporan atau ringkasan praktikum milik peneliti lain.
@@ -343,7 +354,7 @@ ATURAN PENULISAN WAJIB:
 4. Gunakan hanya informasi yang didukung konteks sumber. Jangan mengarang angka, kondisi, hasil, nomor standar, atau prosedur.
 5. Parafrase dengan bahasa Indonesia yang ringan, jelas, dan tetap akademik. Jelaskan istilah teknis dengan kalimat sederhana saat pertama kali digunakan.
 6. Target panjang: ${TARGET_WORDS[params.kedalaman]} kata, minimal ${targetMinimum} kata, dan boleh lebih.
-7. Setiap paragraf harus memiliki sitasi [n] yang benar-benar mendukung isi paragraf. Semua sumber yang diberikan sudah lolos relevansi; sitasi setiap sumber [1] sampai [${currentJournalsCount}] minimal satu kali pada klaim yang didukungnya.
+7. Setiap paragraf harus memiliki sitasi [n] yang benar-benar mendukung isi paragraf. Semua sumber yang diberikan sudah lolos relevansi; sitasi setiap sumber [1] sampai [${activeJournalsCount}] minimal satu kali pada klaim yang didukungnya.
 8. Jika acuan SNI tersedia dalam konteks, jelaskan kaitannya dengan sampel dan parameter praktikum. Sebut nomor/judul SNI hanya jika tertulis dalam konteks; jangan mengarang acuan.
 9. Jangan membuat daftar pustaka di dalam teks, jangan menyebut AI, instruksi, konteks sumber, atau proses pencarian.
 10. Tulis teks biasa dengan subjudul bernomor dan paragraf naratif, tanpa bullet list.
@@ -495,6 +506,7 @@ INGAT:
       requireLongForm: true,
       onModelUsed: (m) => {
         usedModelRecord = m;
+        currentJournalsCount = (m.toLowerCase().includes("apinex") || m.toLowerCase().includes("deepseek")) ? Math.min(params.journals.length, 5) : params.journals.length;
         params.onModelUsed?.(m);
       },
     });
@@ -523,8 +535,10 @@ INGAT:
         }
 
         const deficits = describeDeficits(bestDraft, targetMinimum);
-        const buildExpansionPrompt = () => {
-          const basePrompt = buildPrompt();
+        const buildExpansionPrompt = (modelName?: string) => {
+          const basePrompt = buildPrompt(modelName);
+          const isApinex = modelName ? (modelName.toLowerCase().includes("apinex") || modelName.toLowerCase().includes("deepseek")) : false;
+          const journalsCount = isApinex ? Math.min(params.journals.length, 5) : params.journals.length;
           
           return `${basePrompt}
 
@@ -543,7 +557,7 @@ CARA MEMPERBAIKI:
 2. Perdalam penjelasan mekanisme, alasan, dan kaitannya dengan praktikum "${params.judulAnalisis}".
 3. Tambah kedalaman pada paragraf yang masih pendek; jangan menambah paragraf yang hanya mengulang.
 4. Target akhir: ${TARGET_WORDS[params.kedalaman]} kata, minimum mutlak ${targetMinimum} kata.
-5. Setiap sumber [1] sampai [${currentJournalsCount}] wajib disitasi minimal sekali, hanya pada klaim yang didukung abstraknya.
+5. Setiap sumber [1] sampai [${journalsCount}] wajib disitasi minimal sekali, hanya pada klaim yang didukung abstraknya.
 6. Tetap Bahasa Indonesia akademik, teks biasa, tanpa LaTeX, tanpa Markdown, tanpa simbol dolar.
 
 Keluarkan HANYA teks landasan teori versi lengkap yang sudah diperluas.`;
@@ -564,6 +578,7 @@ Keluarkan HANYA teks landasan teori versi lengkap yang sudah diperluas.`;
             requireLongForm: true,
             onModelUsed: (m) => {
               usedModelRecord = m;
+              currentJournalsCount = (m.toLowerCase().includes("apinex") || m.toLowerCase().includes("deepseek")) ? Math.min(params.journals.length, 5) : params.journals.length;
               params.onModelUsed?.(m);
             },
           });
