@@ -497,7 +497,7 @@ INGAT:
     const rawText = await generateWithFallbacks(buildPrompt, config, {
       stage: "Pembuatan landasan teori",
       deadline,
-      qualityCheck: (candidate) => evaluateOutput(candidate, targetMinimum),
+      qualityCheck: (candidate) => evaluateOutput(candidate, tolerance),
       acceptBest: true,
       requireLongForm: true,
             onModelUsed: (m) => { usedModelRecord = m; currentJournalsCount = (m.toLowerCase().includes("toptools") || m.toLowerCase().includes("top-tools")) ? Math.min(params.journals.length, 4) : params.journals.length; params.onModelUsed?.(m); },
@@ -509,8 +509,8 @@ INGAT:
     let citations = initialDraft.citations;
     let wordCount = initialDraft.words;
 
-    if (!meetsThreshold(initialDraft, targetMinimum)) {
-      console.warn(`⚠️ Output awal belum memenuhi ambang: ${wordCount} kata (target: ${targetMinimum}), ${paragraphs.length} paragraf, sitasi [${citations.join(", ")}]. Mencoba perluasan...`);
+    if (!meetsThreshold(initialDraft, tolerance)) {
+      console.warn(`⚠️ Output awal belum memenuhi ambang: ${wordCount} kata (target: ${tolerance}), ${paragraphs.length} paragraf, sitasi [${citations.join(", ")}]. Mencoba perluasan...`);
 
       // Perluasan bertahap: tiap putaran memakai draft terbaru sebagai basis
       // dan hanya meminta tambahan pada bagian yang masih kurang.
