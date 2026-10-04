@@ -9,10 +9,10 @@ const openRouterBaseUrl = "https://openrouter.ai/api/v1";
 const geminiModel = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 const geminiFallbackModel = process.env.GEMINI_FALLBACK_MODEL || "gemini-3.5-flash";
 
-// Model reasoning (mis. Nemotron) memakai jatah token untuk berpikir sebelum menjawab.
-// 300 token membuat jawaban terpotong sebelum query keluar, jadi jatahnya dilonggarkan.
-const TRANSLATION_MAX_TOKENS = 800;
-const TRANSLATION_TIMEOUT_MS = 60000;
+// Model reasoning memakai jatah token untuk berpikir sebelum menjawab.
+// 2000 token memberi ruang aman bagi fase penalaran agar output query tidak terpotong.
+const TRANSLATION_MAX_TOKENS = 2000;
+const TRANSLATION_TIMEOUT_MS = 12000;
 // Ambang minimal query layak. Tiga terlalu galak untuk model gratisan; dua sudah
 // cukup memberi variasi pencarian tanpa sering menjatuhkan provider yang sehat.
 const MIN_VALID_QUERIES = 2;

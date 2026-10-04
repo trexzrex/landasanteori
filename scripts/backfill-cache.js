@@ -50,7 +50,7 @@ async function translateTitleToQueries(judul) {
           model: APINEX_MODEL,
           messages: [{ role: "user", content: prompt }],
           temperature: 0.1,
-          max_tokens: 1500
+          max_tokens: 2000
         }),
         signal: AbortSignal.timeout(15000)
       });
