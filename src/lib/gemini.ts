@@ -106,9 +106,9 @@ async function generateWithOpenRouterModel(model: string, prompt: string, config
 async function generateWithExtraProvider(provider: { name: string; baseUrl?: string; apiKey?: string; model: string }, prompt: string, config: { temperature: number; maxOutputTokens: number }): Promise<string> {
   if (!provider.baseUrl || !provider.apiKey) throw new Error(`${provider.name} belum dikonfigurasi`);
   const isApinex = provider.name.toLowerCase().includes("apinex") || provider.model.toLowerCase().includes("deepseek");
-  // Apinex (DeepSeek reasoning) memerlukan ruang token penalaran + output, plafon 5500 memberi ruang aman
-  const maxTokens = isApinex ? 5500 : config.maxOutputTokens;
-  const timeoutMs = isApinex ? 38000 : PROVIDER_TIMEOUT_MS;
+  // Apinex (DeepSeek reasoning) memerlukan ruang token penalaran + output, plafon 6000 memberi ruang sangat aman
+  const maxTokens = isApinex ? 6000 : config.maxOutputTokens;
+  const timeoutMs = isApinex ? 40000 : PROVIDER_TIMEOUT_MS;
   const response = await fetch(`${provider.baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     headers: { Authorization: `Bearer ${provider.apiKey}`, "Content-Type": "application/json" },
@@ -254,7 +254,7 @@ async function generateWithFallbacks(
         });
 
         // Keep the longest usable draft so the expansion stage has something to build on
-        const usableDraft = wordCount >= MIN_DRAFT_WORDS && /\[\d+\]/.test(text);
+        const usableDraft = wordCount >= MIN_DRAFT_WORDS && /\[[^\]]*\d+[^\]]*\]/.test(text);
         if (usableDraft && (!bestCandidate || wordCount > bestCandidate.words)) {
           bestCandidate = { text, words: wordCount, label: provider.label, reason };
           console.warn(`💾 Draft terbaik sementara: ${provider.name} (${wordCount} kata)`);
@@ -400,7 +400,7 @@ INGAT:
 
   const deadline = Date.now() + TOTAL_BUDGET_MS;
   const tolerance = Math.floor(targetMinimum * 0.90);
-  const smartWordsThreshold = Math.floor(targetMinimum * 0.85);
+  const smartWordsThreshold = Math.floor(targetMinimum * 0.80);
 
   type DraftStats = {
     text: string;
@@ -417,7 +417,10 @@ INGAT:
       .replace(/^```(?:text|markdown)?\s*/i, "")
       .replace(/\s*```$/i, "")
       .replace(/\n{3,}/g, "\n\n");
-    const citations = [...text.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1]));
+    // Fleksibel menangani [1], [1, 2], [1][2], maupun [Sumber 1]
+    const citations = [...text.matchAll(/\[([^\]]+)\]/g)]
+      .flatMap((m) => m[1].match(/\d+/g) || [])
+      .map(Number);
     return {
       text,
       paragraphs: text.split(/\n\s*\n/).map((p) => p.replace(/\s+/g, " ").trim()).filter(Boolean),
