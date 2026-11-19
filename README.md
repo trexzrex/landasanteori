@@ -316,6 +316,16 @@ landasan-teori/
 
 ---
 
+## Mode Maintenance
+
+Sebelum deploy fitur ini, jalankan `supabase/migration-maintenance.sql` di Supabase SQL Editor setelah migrasi dasar dan RLS. Migrasi membuat pengaturan awal **nonaktif**; tidak mengubah status layanan menjadi maintenance.
+
+Admin dapat membuka `/dashboard/admin` → **Mode Maintenance**, mengubah pesan, lalu menyimpan. Aktivasi meminta konfirmasi. Pengguna biasa yang login diarahkan ke `/maintenance`; akses generator ditolak dengan HTTP 503 sebelum kuota atau AI digunakan. Tab yang sudah terbuka memeriksa ulang setiap 15 detik dan saat fokus kembali. RLS tambahan membatasi akses langsung ke generasi/event selama maintenance. Admin menerima dialog yang bisa ditutup dan tetap dapat menggunakan aplikasi, dengan penanda maintenance di bagian atas.
+
+Jika tabel/status maintenance tidak dapat dibaca, pengguna biasa diblokir sementara (fail-closed); admin tetap memiliki akses pemulihan. **Jalankan migrasi sebelum kode baru dipakai**, agar pengguna tidak terblokir akibat tabel yang belum tersedia. Permintaan generasi yang sudah berjalan sebelum maintenance diaktifkan tidak dibatalkan secara paksa.
+
+Pengujian lokal (Node.js 24): `npm run test:maintenance`. Tes menggunakan transport database terkontrol, bukan database produksi. Uji penerimaan dengan dua akun: aktifkan dari admin, pastikan akun biasa tidak bisa membuka halaman privat atau memanggil generator, tutup pemberitahuan admin dan pastikan generator tetap dapat dibuka, lalu nonaktifkan dan pastikan pengguna biasa kembali mendapat akses.
+
 ## 🧪 Testing
 
 Panduan pengujian end-to-end tersedia di **[TESTING.md](./TESTING.md)** (uji manual via browser, uji API, verifikasi rate limit & logging).

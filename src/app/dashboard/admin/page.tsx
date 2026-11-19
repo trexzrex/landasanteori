@@ -8,6 +8,7 @@ import Link from "next/link";
 import { MotionConfig, motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { MaintenanceSettings } from "@/components/maintenance-settings";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { createClient } from "@/lib/supabase/client";
@@ -125,6 +126,8 @@ export default function AdminPage() {
             { label: "Admin" },
           ]}
         />
+
+        <MaintenanceSettings />
 
         <motion.div
           variants={listContainer}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { FeedbackDialog } from "@/components/feedback-dialog";
+import { MaintenanceGate } from "@/components/maintenance-gate";
 import { getSiteUrl } from "@/lib/utils";
 import "./globals.css";
 
@@ -104,8 +105,10 @@ export default function RootLayout({
           Langsung ke konten utama
         </a>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-          {children}
-          <FeedbackDialog />
+          <MaintenanceGate>
+            {children}
+            <FeedbackDialog />
+          </MaintenanceGate>
         </ThemeProvider>
       </body>
     </html>

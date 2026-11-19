@@ -9,6 +9,8 @@ import { getErrorMessage, sendGenerationNotification } from "@/lib/telegram";
 import { createClient } from "@/lib/supabase/server";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 import { checkUserQuota, consumeUserQuota } from "@/lib/quota";
+import { readMaintenanceState } from "@/lib/maintenance";
+import { getMaintenanceAccess } from "@/lib/maintenance-policy";
 
 // Harus >= GENERATION_BUDGET_SECONDS pada src/lib/gemini.ts.
 // Vercel Hobby membatasi 60s, Pro 300s. Saat ini di-set untuk Hobby;
@@ -57,6 +59,13 @@ export async function POST(request: Request) {
     .eq("id", user.id)
     .single();
   const isAdmin = profile?.role === "admin";
+  const maintenance = await readMaintenanceState(supabase);
+  if (getMaintenanceAccess(maintenance, profile?.role) === "blocked") {
+    return NextResponse.json(
+      { status: "error", code: "MAINTENANCE", message: maintenance.message },
+      { status: 503, headers: { "Retry-After": "60", "Cache-Control": "no-store" } }
+    );
+  }
 
   let logBase = {
     nama: "-",

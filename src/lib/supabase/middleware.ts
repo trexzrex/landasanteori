@@ -1,5 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { readMaintenanceState } from "@/lib/maintenance";
+import { getMaintenanceAccess, isMaintenanceProtectedPath } from "@/lib/maintenance-policy";
 
 export async function updateSession(request: NextRequest) {
   const response = NextResponse.next({
@@ -30,16 +32,30 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  const PROTECTED_ROUTES = ["/generate", "/dashboard", "/admin", "/result"];
+  // Redirect responses must retain cookies refreshed during the session check.
+  const redirect = (path: string) => {
+    const target = NextResponse.redirect(new URL(path, request.url));
+    response.cookies.getAll().forEach((cookie) => target.cookies.set(cookie));
+    target.headers.set("Cache-Control", "no-store, private");
+    return target;
+  };
   const AUTH_ROUTES = ["/login", "/verify"];
 
-  const isProtected = PROTECTED_ROUTES.some((r) => pathname.startsWith(r));
+  const isProtected = isMaintenanceProtectedPath(pathname);
   const isAuthRoute = AUTH_ROUTES.some((r) => pathname.startsWith(r));
 
-  if (isProtected && !user) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+  if ((isProtected || pathname === "/maintenance") && !user) {
+    return redirect(`/login?next=${encodeURIComponent(pathname)}`);
+  }
+
+  if (user && (isProtected || pathname === "/maintenance")) {
+    const [{ data: accessProfile }, state] = await Promise.all([
+      supabase.from("profiles").select("role").eq("id", user.id).single(),
+      readMaintenanceState(supabase),
+    ]);
+    const access = getMaintenanceAccess(state, accessProfile?.role);
+    if (access === "blocked" && pathname !== "/maintenance") return redirect("/maintenance");
+    if (access !== "blocked" && pathname === "/maintenance") return redirect("/dashboard");
   }
 
   if (user && isAuthRoute) {

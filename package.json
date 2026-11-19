@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:maintenance": "node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/maintenance.test.mjs tests/maintenance-api.test.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.18.0",

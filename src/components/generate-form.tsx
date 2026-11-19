@@ -248,6 +248,12 @@ export function GenerateForm() {
       if (!res.ok || result?.status === "error" || !result?.data) {
         setIsLoading(false);
 
+        if (result?.code === "MAINTENANCE") {
+          router.replace("/maintenance");
+          router.refresh();
+          return;
+        }
+
         // 1. Vercel timeout (504) atau 502 non-JSON saat penyiapan topik baru melebihi durasi batas awal
         if (res.status === 504 || (res.status === 502 && !isJson)) {
           setServerError({
